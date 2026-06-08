@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="習慣トラッカー">
+<meta name="theme-color" content="#0f0f1a">
+<title>習慣トラッカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body {
+    background: #0f0f1a;
+    color: #e8e8f0;
+    font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  input:focus { outline: none; }
+  button { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo } = React;
+
+// ── 定数 ────────────────────────────────────────────────────
+const HABITS_KEY  = "habits_v3";   // v3: startDay フィールド追加のため新キー
+const ARCHIVE_KEY = "archive_v3";
+const MONTH_KEY   = "current_month_v3";
+const MAX_HABITS  = 20;            // 習慣の最大登録数
+
+// ── ユーティリティ ──────────────────────────────────────────
+const todayYM = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+};
+const todayDate = () => new Date().getDate();
+
+const daysInMonth = (ym) => {
+  const [y,m] = ym.split("-").map(Number);
+  return new Date(y, m, 0).getDate();
+};
+const labelOf = (ym) => {
+  const [y,m] = ym.split("-").map(Number);
+  return `${y}年${m}月`;
+};
+const weekOf = (day, ym) => {
+  const [y,m] = ym.split("-").map(Number);
+  const dow = new Date(y, m-1, 1).getDay();
+  return Math.floor((day - 1 + dow) / 7);
+};
+
+// ── 新しい習慣オブジェクトを生成 ────────────────────────────
+// startDay: この月の何日目から計算対象にするか（1 = 月初から）
+const newHabit = (startDay = 1) => ({
+  name: "習慣",
+  checks: {},
+  active: true,
+  startDay,          // ★ 追加日（計算対象の開始日）
+});
+
+// ── ストレージ ──────────────────────────────────────────────
+const loadState = () => {
+  try {
+    const savedMonth  = JSON.parse(localStorage.getItem(MONTH_KEY)  || "null");
+    const savedHabits = JSON.parse(localStorage.getItem(HABITS_KEY) || "null");
+    const archive     = JSON.parse(localStorage.getItem(ARCHIVE_KEY)|| "{}");
+    return {
+      currentMonth: savedMonth || todayYM(),
+      // 保存データがなければ習慣を1つだけ初期表示
+      habits: savedHabits || [newHabit(1)],
+      archive,
+    };
+  } catch {
+    return { currentMonth: todayYM(), habits: [newHabit(1)], archive: {} };
+  }
+};
+const saveState = (currentMonth, habits, archive) => {
+  localStorage.setItem(MONTH_KEY,  JSON.stringify(currentMonth));
+  localStorage.setItem(HABITS_KEY, JSON.stringify(habits));
+  localStorage.setItem(ARCHIVE_KEY,JSON.stringify(archive));
+};
+
+// ── 統計計算（startDay を考慮） ─────────────────────────────
+//
+// 達成率の計算ルール：
+//   - 分母 = startDay 以降の「経過済み日数」（当月なら今日まで、過去月なら月末まで）
+//   - 分子 = startDay 以降のチェック数
+//   - startDay より前の日付は分母にも分子にも含めない
+//
+const calcStats = (habit, ym) => {
+  const dim   = daysInMonth(ym);
+  const today = new Date();
+  const [y,m] = ym.split("-").map(Number);
+  const isCurrent = y === today.getFullYear() && m === today.getMonth()+1;
+
+  // この月での計算開始日（startDay が未定義の場合は 1 日扱い）
+  const start = habit.startDay ?? 1;
+
+  // 計算対象の終了日（今月なら今日、過去月なら月末）
+  const end = isCurrent ? today.getDate() : dim;
+
+  // 分母：start〜end の日数（start > end なら 0）
+  const effDays = Math.max(0, end - start + 1);
+
+  // 分子：start 以降のチェック数のみカウント
+  const checked = Object.entries(habit.checks)
+    .filter(([d, v]) => v && Number(d) >= start)
+    .length;
+
+  const rate  = effDays > 0 ? checked / effDays : 0;
+  const score = checked / 2;
+
+  // 週別達成率（startDay 以前の日を除外）
+  const weeks = [0,1,2,3,4].map(w => {
+    let cnt=0, tot=0;
+    for (let d=start; d<=end; d++) {
+      if (weekOf(d,ym)===w) {
+        tot++;
+        if (habit.checks[d]) cnt++;
+      }
+    }
+    // その週に計算対象日が1日もなければ null（表示しない）
+    return tot>0 ? Math.round(cnt/tot*100) : null;
+  });
+
+  return {
+    checked,
+    effDays,   // 計算対象日数（UI表示用）
+    start,
+    rate: Math.round(rate*100),
+    score: Math.round(score*10)/10,
+    weeks,
+  };
+};
+
+// ── SVG リングチャート ──────────────────────────────────────
+const RingChart = ({ value, size=60, stroke=6, color }) => {
+  const r    = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const c    = color || (value>=80?"#22c55e":value>=50?"#f59e0b":"#ef4444");
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#2a2a3a" strokeWidth={stroke}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={c}
+        strokeWidth={stroke}
+        strokeDasharray={`${value/100*circ} ${circ}`}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${size/2} ${size/2})`}
+        style={{transition:"stroke-dasharray 0.5s"}}/>
+      <text x={size/2} y={size/2+4} textAnchor="middle"
+        fill="#fff" fontSize={size*0.2} fontWeight="bold">{value}%</text>
+    </svg>
+  );
+};
+
+// ── メインアプリ ────────────────────────────────────────────
+function App() {
+  const [state, setState]             = useState(loadState);
+  const [tab, setTab]                 = useState("tracker");
+  const [editMode, setEditMode]       = useState(false);
+  const [archiveModal, setArchiveModal] = useState(null);
+  const [toast, setToast]             = useState(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  const { currentMonth, habits, archive } = state;
+  const days = daysInMonth(currentMonth);
+
+  // 永続化
+  useEffect(() => {
+    saveState(currentMonth, habits, archive);
+  }, [currentMonth, habits, archive]);
+
+  // トースト
+  const showToast = useCallback((msg, type="success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  // ── 習慣を追加（今日の日付を startDay として記録） ─────────
+  const addHabit = useCallback(() => {
+    setState(prev => {
+      if (prev.habits.length >= MAX_HABITS) return prev;
+      const today = new Date();
+      const [y,m] = prev.currentMonth.split("-").map(Number);
+      // 今月なら今日、別の月を表示中なら1日から
+      const isCurrent = y===today.getFullYear() && m===today.getMonth()+1;
+      const startDay  = isCurrent ? today.getDate() : 1;
+      return { ...prev, habits: [...prev.habits, newHabit(startDay)] };
+    });
+  }, []);
+
+  // ── 習慣を削除 ─────────────────────────────────────────────
+  const removeHabit = useCallback((hi) => {
+    setState(prev => ({
+      ...prev,
+      habits: prev.habits.filter((_,i) => i !== hi),
+    }));
+  }, []);
+
+  // チェック切替
+  const toggleCheck = useCallback((hi, day) => {
+    setState(prev => ({
+      ...prev,
+      habits: prev.habits.map((h,i) => i!==hi ? h : {
+        ...h, checks: { ...h.checks, [day]: !h.checks[day] }
+      }),
+    }));
+  }, []);
+
+  // 習慣名変更
+  const renameHabit = useCallback((hi, name) => {
+    setState(prev => ({
+      ...prev,
+      habits: prev.habits.map((h,i) => i===hi ? {...h, name} : h),
+    }));
+  }, []);
+
+  // アクティブ切替
+  const toggleActive = useCallback((hi) => {
+    setState(prev => ({
+      ...prev,
+      habits: prev.habits.map((h,i) => i===hi ? {...h, active:!h.active} : h),
+    }));
+  }, []);
+
+  // ── 月次アーカイブ & リセット ──────────────────────────────
+  const archiveAndReset = useCallback(() => {
+    setState(prev => {
+      const ym  = prev.currentMonth;
+      const dim = daysInMonth(ym);
+      const entry = {
+        ym, label: labelOf(ym),
+        archivedAt: new Date().toISOString(),
+        habits: prev.habits.map(h => {
+          const stats = calcStats(h, ym);
+          return { name: h.name, active: h.active, startDay: h.startDay??1,
+                   checks: { ...h.checks }, ...stats };
+        }),
+        // totalChecked は startDay 考慮済みのチェック数合計
+        totalChecked: prev.habits.reduce((s,h) => {
+          const start = h.startDay ?? 1;
+          return s + Object.entries(h.checks)
+            .filter(([d,v]) => v && Number(d) >= start).length;
+        }, 0),
+        daysInMonth: dim,
+      };
+      const newArchive = { ...prev.archive, [ym]: entry };
+      const [y,m] = ym.split("-").map(Number);
+      const nd    = new Date(y, m, 1);
+      const newMonth = `${nd.getFullYear()}-${String(nd.getMonth()+1).padStart(2,"0")}`;
+      // リセット時は startDay を 1 に戻す（新しい月は月初から計算）
+      return {
+        currentMonth: newMonth,
+        habits: prev.habits.map(h => ({ ...h, checks: {}, startDay: 1 })),
+        archive: newArchive,
+      };
+    });
+    showToast("アーカイブ完了！新しい月が始まりました 🎉");
+    setConfirmReset(false);
+    setTab("tracker");
+  }, [showToast]);
+
+  // ── 派生値 ──────────────────────────────────────────────────
+  const today        = new Date();
+  const [y0,m0]      = currentMonth.split("-").map(Number);
+  const isCurrent    = y0===today.getFullYear() && m0===today.getMonth()+1;
+  const todayDay     = isCurrent ? today.getDate() : null;
+  const firstDow     = new Date(y0, m0-1, 1).getDay();
+  const weeksCount   = Math.ceil((days + firstDow) / 7);
+  const archiveList  = Object.values(archive).sort((a,b) => b.ym.localeCompare(a.ym));
+  const habitStats   = useMemo(
+    () => habits.map(h => calcStats(h, currentMonth)),
+    [habits, currentMonth]
+  );
+  const activeHabits = habits.filter(h => h.active);
+
+  // 全体達成率：各習慣の effDays を正しく合算して計算
+  const { totalChecked, totalEffDays } = useMemo(() => {
+    return activeHabits.reduce((acc, h) => {
+      const hi  = habits.indexOf(h);
+      const s   = habitStats[hi];
+      return { totalChecked: acc.totalChecked + s.checked,
+               totalEffDays: acc.totalEffDays + s.effDays };
+    }, { totalChecked: 0, totalEffDays: 0 });
+  }, [activeHabits, habits, habitStats]);
+
+  const overallRate = totalEffDays > 0
+    ? Math.round(totalChecked / totalEffDays * 100) : 0;
+
+  const TABS = [
+    { key:"tracker",   icon:"📅", label:"チェック" },
+    { key:"dashboard", icon:"📊", label:"ダッシュボード" },
+    { key:"history",   icon:"🗂",  label:"履歴" },
+    { key:"analysis",  icon:"📈", label:"分析" },
+  ];
+
+  // ── レンダリング ────────────────────────────────────────────
+  return (
+    <div style={S.root}>
+      <div style={S.bg1}/><div style={S.bg2}/>
+
+      {/* ── ヘッダー ── */}
+      <header style={S.header}>
+        <div style={S.headerInner}>
+          <div>
+            <div style={S.headerTitle}>習慣トラッカー</div>
+            <div style={S.headerSub}>{labelOf(currentMonth)}</div>
+          </div>
+          <div style={S.headerBadges}>
+            <div style={S.badge}>
+              <span style={S.badgeNum}>{overallRate}%</span>
+              <span style={S.badgeLbl}>全体達成率</span>
+            </div>
+            <div style={S.badge}>
+              <span style={S.badgeNum}>{totalChecked}</span>
+              <span style={S.badgeLbl}>総達成数</span>
+            </div>
+          </div>
+        </div>
+        <nav style={S.tabs}>
+          {TABS.map(({key,icon,label}) => (
+            <button key={key} onClick={()=>setTab(key)}
+              style={{...S.tab,...(tab===key?S.tabOn:{})}}>
+              {icon} {label}
+            </button>
+          ))}
+        </nav>
+      </header>
+
+      <main style={S.main}>
+
+        {/* ══ チェッカータブ ══ */}
+        {tab==="tracker" && (
+          <div style={S.section}>
+
+            {/* ツールバー */}
+            <div style={S.toolbar}>
+              <button style={S.btnSec} onClick={()=>setEditMode(e=>!e)}>
+                {editMode ? "✅ 編集を終了" : "✏️ 習慣を編集"}
+              </button>
+              {/* 習慣追加ボタン（上限に達したら非表示） */}
+              {habits.length < MAX_HABITS && (
+                <button style={S.btnAdd} onClick={addHabit}>
+                  ＋ 習慣を追加
+                  <span style={S.habitCount}>{habits.length}/{MAX_HABITS}</span>
+                </button>
+              )}
+              <button style={{...S.btnPri, background:"#b91c1c", marginLeft:"auto"}}
+                onClick={()=>setConfirmReset(true)}>
+                📦 アーカイブ & リセット
+              </button>
+            </div>
+
+            {/* 習慣が0件のとき */}
+            {habits.length === 0 && (
+              <div style={S.empty}>
+                習慣がありません。<br/>
+                「＋ 習慣を追加」ボタンで最初の習慣を登録してください。
+              </div>
+            )}
+
+            {/* チェックグリッド */}
+            {habits.length > 0 && (
+              <div style={S.gridWrap}>
+                <div style={S.gridScroll}>
+
+                  {/* ヘッダー行（日付） */}
+                  <div style={S.gridRow}>
+                    <div style={S.nameCell}/>
+                    {Array.from({length:days},(_,i)=>i+1).map(d => (
+                      <div key={d} style={{...S.dayHead,...(d===todayDay?S.dayHeadToday:{})}}>
+                        <div style={S.dayNum}>{d}</div>
+                        <div style={S.dayDow}>{"日月火水木金土"[new Date(y0,m0-1,d).getDay()]}</div>
+                      </div>
+                    ))}
+                    <div style={S.statHead}>達成率</div>
+                    <div style={S.statHead}>スコア</div>
+                  </div>
+
+                  {/* 習慣行 */}
+                  {habits.filter(h=>h.active||editMode).map((habit,vi) => {
+                    const hi    = habits.indexOf(habit);
+                    const stats = habitStats[hi];
+                    const start = habit.startDay ?? 1;
+
+                    return (
+                      <div key={hi} style={{...S.gridRow,...(vi%2===0?S.gridRowEven:{})}}>
+
+                        {/* 習慣名セル */}
+                        <div style={S.nameCell}>
+                          {editMode ? (
+                            <div style={{display:"flex",alignItems:"center",gap:3}}>
+                              <button style={S.eyeBtn} onClick={()=>toggleActive(hi)}
+                                title={habit.active?"非表示":"表示"}>
+                                {habit.active?"👁":"🙈"}
+                              </button>
+                              <input style={S.nameInput} value={habit.name}
+                                onChange={e=>renameHabit(hi,e.target.value)}/>
+                              <button style={S.delBtn} onClick={()=>removeHabit(hi)}
+                                title="この習慣を削除">✕</button>
+                            </div>
+                          ) : (
+                            <div>
+                              <span style={S.habitName}>{habit.name}</span>
+                              {/* startDay が 1 より後なら「〇日〜」と表示 */}
+                              {start > 1 && (
+                                <div style={S.startDayBadge}>{start}日〜</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* チェックボックス列 */}
+                        {Array.from({length:days},(_,i)=>i+1).map(d => {
+                          const on        = !!habit.checks[d];
+                          const inactive  = d < start; // startDay より前は操作不可
+                          return (
+                            <button key={d}
+                              disabled={inactive}
+                              onClick={()=>!inactive && toggleCheck(hi,d)}
+                              title={inactive
+                                ? `${start}日以降から記録開始`
+                                : `${habit.name} ${d}日`}
+                              style={{
+                                ...S.chk,
+                                ...(on      ? S.chkOn      : {}),
+                                ...(d===todayDay ? S.chkToday : {}),
+                                ...(inactive? S.chkInactive: {}),
+                              }}>
+                              {on ? "✓" : ""}
+                            </button>
+                          );
+                        })}
+
+                        {/* 達成率 */}
+                        <div style={S.statCell}>
+                          <div style={S.rateTrack}>
+                            <div style={{...S.rateFill, width:`${stats.rate}%`,
+                              background:stats.rate>=80?"#16a34a":stats.rate>=50?"#d97706":"#dc2626"}}/>
+                          </div>
+                          <span style={S.rateNum}>{stats.rate}%</span>
+                          {/* 計算対象日数を小さく表示 */}
+                          {start > 1 && (
+                            <span style={S.effDaysNote}>{stats.effDays}日間</span>
+                          )}
+                        </div>
+
+                        {/* スコア */}
+                        <div style={{...S.statCell,fontWeight:700,color:"#fbbf24",fontSize:13}}>
+                          {stats.score}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 週間達成率リング */}
+            {habits.length > 0 && (
+              <div style={S.weekBox}>
+                <div style={S.secTitle}>📅 週間達成率</div>
+                <div style={S.weekRow}>
+                  {Array.from({length:weeksCount},(_,w) => {
+                    // startDay 考慮済みの週別集計
+                    const rates = activeHabits.map(h => {
+                      const ri = habits.indexOf(h);
+                      return habitStats[ri].weeks[w];
+                    }).filter(v => v !== null);
+                    const avg = rates.length > 0
+                      ? Math.round(rates.reduce((s,v)=>s+v,0)/rates.length) : 0;
+                    return (
+                      <div key={w} style={S.weekCard}>
+                        <div style={S.weekLbl}>第{w+1}週</div>
+                        <RingChart value={avg} size={56} stroke={5}/>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ ダッシュボードタブ ══ */}
+        {tab==="dashboard" && (
+          <div style={S.section}>
+            <div style={S.secTitle}>📊 {labelOf(currentMonth)} ダッシュボード</div>
+
+            <div style={S.kpiGrid}>
+              {[
+                {label:"全体達成率", value:`${overallRate}%`,          color:"#3b82f6"},
+                {label:"総達成数",   value:totalChecked,               color:"#22c55e"},
+                {label:"登録習慣数", value:activeHabits.length,        color:"#a855f7"},
+                {label:"最高スコア", value:Math.max(0,...habitStats.map(s=>s.score)), color:"#fbbf24"},
+              ].map((k,i) => (
+                <div key={i} style={{...S.kpiCard, borderTop:`3px solid ${k.color}`}}>
+                  <div style={{...S.kpiVal, color:k.color}}>{k.value}</div>
+                  <div style={S.kpiLbl}>{k.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={S.card}>
+              <div style={S.cardTitle}>習慣別 達成率・スコア</div>
+              {activeHabits.length===0 ? (
+                <div style={{color:"#64748b",fontSize:13,padding:"12px 0"}}>
+                  チェックタブで習慣を追加してください
+                </div>
+              ) : activeHabits.map((h,i) => {
+                const ri = habits.indexOf(h);
+                const s  = habitStats[ri];
+                return (
+                  <div key={i} style={S.barRow}>
+                    <div style={S.barName}>
+                      {h.name}
+                      {(h.startDay??1)>1 &&
+                        <span style={{fontSize:9,color:"#64748b",marginLeft:4}}>
+                          ({h.startDay}日〜)
+                        </span>
+                      }
+                    </div>
+                    <div style={S.barTrack}>
+                      <div style={{...S.barFill, width:`${s.rate}%`,
+                        background:`hsl(${s.rate*1.2},65%,48%)`}}/>
+                    </div>
+                    <div style={S.barStat}>
+                      <span style={{color:"#94a3b8"}}>{s.rate}%</span>
+                      <span style={{color:"#fbbf24",marginLeft:8}}>★{s.score}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={S.card}>
+              <div style={S.cardTitle}>詳細スコア一覧</div>
+              <div style={{overflowX:"auto"}}>
+                <table style={S.table}>
+                  <thead>
+                    <tr style={S.thead}>
+                      {["習慣名","開始日","達成日数","対象日数","達成率","スコア","第1週","第2週","第3週","第4週"]
+                        .map(h=><th key={h} style={S.th}>{h}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeHabits.map((h,i) => {
+                      const ri = habits.indexOf(h);
+                      const s  = habitStats[ri];
+                      return (
+                        <tr key={i} style={i%2===0?{background:"rgba(255,255,255,0.02)"}:{}}>
+                          <td style={S.td}>{h.name}</td>
+                          <td style={S.tdc}>{(h.startDay??1)===1?"月初":`${h.startDay}日`}</td>
+                          <td style={S.tdc}>{s.checked}日</td>
+                          <td style={{...S.tdc,color:"#64748b"}}>{s.effDays}日</td>
+                          <td style={S.tdc}>
+                            <span style={{
+                              color:s.rate>=80?"#22c55e":s.rate>=50?"#f59e0b":"#ef4444",
+                              fontWeight:700}}>
+                              {s.rate}%
+                            </span>
+                          </td>
+                          <td style={{...S.tdc,color:"#fbbf24",fontWeight:700}}>{s.score}</td>
+                          {s.weeks.slice(0,4).map((w,wi)=>(
+                            <td key={wi} style={S.tdc}>{w!==null?`${w}%`:"—"}</td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ 履歴タブ ══ */}
+        {tab==="history" && (
+          <div style={S.section}>
+            <div style={S.secTitle}>🗂 月別アーカイブ履歴</div>
+            {archiveList.length===0 ? (
+              <div style={S.empty}>
+                まだアーカイブがありません。<br/>
+                月末に「アーカイブ & リセット」を実行すると<br/>ここに保存されます。
+              </div>
+            ) : archiveList.map(entry => {
+              const activeH = entry.habits.filter(h=>h.active);
+              const maxDays = activeH.reduce((s,h) =>
+                s + Math.max(0, entry.daysInMonth-(h.startDay??1)+1), 0);
+              const r = maxDays>0
+                ? Math.round(entry.totalChecked/maxDays*100) : 0;
+              return (
+                <div key={entry.ym} style={S.archCard}
+                  onClick={()=>setArchiveModal(entry)}>
+                  <div>
+                    <div style={S.archMonth}>{entry.label}</div>
+                    <div style={S.archSub}>
+                      達成 {entry.totalChecked} / {maxDays} チェック
+                    </div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:12}}>
+                    <RingChart value={r} size={60} stroke={6}/>
+                    <span style={{color:"#64748b",fontSize:12}}>詳細 →</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ══ 分析タブ ══ */}
+        {tab==="analysis" && (
+          <div style={S.section}>
+            <div style={S.secTitle}>📈 月別推移分析</div>
+            {archiveList.length<2 ? (
+              <div style={S.empty}>
+                分析には2ヶ月以上のデータが必要です。<br/>
+                アーカイブが溜まると自動で表示されます。
+              </div>
+            ) : (
+              <>
+                <div style={S.card}>
+                  <div style={S.cardTitle}>月別 全体達成率推移</div>
+                  <div style={S.chartArea}>
+                    {[...archiveList].reverse().map(entry => {
+                      const activeH = entry.habits.filter(h=>h.active);
+                      const maxDays = activeH.reduce((s,h)=>
+                        s+Math.max(0,entry.daysInMonth-(h.startDay??1)+1),0);
+                      const r = maxDays>0
+                        ? Math.round(entry.totalChecked/maxDays*100) : 0;
+                      return (
+                        <div key={entry.ym} style={S.chartCol}>
+                          <div style={S.chartBarWrap}>
+                            <div style={{...S.chartBar,
+                              height:`${Math.max(r*1.4,4)}px`,
+                              background:`hsl(${r*1.2},65%,48%)`}}/>
+                          </div>
+                          <div style={S.chartLbl}>{entry.ym.slice(5)}月</div>
+                          <div style={S.chartVal}>{r}%</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={S.card}>
+                  <div style={S.cardTitle}>習慣別 スコア推移</div>
+                  {habits.filter(h=>h.active).map((h,hi) => {
+                    const pts = [...archiveList].reverse().map(e => {
+                      const ah = e.habits.find(eh=>eh.name===h.name);
+                      return ah ? ah.score : null;
+                    });
+                    const validPts = pts.filter(v=>v!==null);
+                    const mx = Math.max(...validPts, 1);
+                    return (
+                      <div key={hi} style={S.sparkRow}>
+                        <div style={S.sparkName}>{h.name}</div>
+                        <div style={S.sparkTrack}>
+                          {pts.map((v,i) => (
+                            <div key={i} style={S.sparkCol}>
+                              {v !== null ? (
+                                <div style={{...S.sparkBar,
+                                  height:`${Math.max(v/mx*48,2)}px`,
+                                  background:`hsl(${(v/mx)*120},65%,48%)`}}/>
+                              ) : (
+                                <div style={{...S.sparkBar,height:2,background:"#374151"}}/>
+                              )}
+                              <div style={S.sparkLbl}>
+                                {archiveList[archiveList.length-1-i]?.ym.slice(5)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <span style={{color:"#fbbf24",minWidth:36,textAlign:"right",fontWeight:700}}>
+                          ★{validPts[validPts.length-1]??0}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={S.card}>
+                  <div style={S.cardTitle}>🏆 継続ランキング</div>
+                  {habits.filter(h=>h.active).map(h => {
+                    const entries = archiveList.filter(e =>
+                      e.habits.some(eh=>eh.name===h.name));
+                    const total = entries.reduce((s,e)=>{
+                      const ah = e.habits.find(eh=>eh.name===h.name);
+                      return s+(ah?.score??0);
+                    },0);
+                    const avg = entries.length>0
+                      ? Math.round(entries.reduce((s,e)=>{
+                          const ah = e.habits.find(eh=>eh.name===h.name);
+                          return s+(ah?.rate??0);
+                        },0)/entries.length)
+                      : 0;
+                    return { name:h.name, total, avg };
+                  }).sort((a,b)=>b.total-a.total).map((h,i) => (
+                    <div key={i} style={{...S.rankRow,opacity:Math.max(1-i*0.07,0.5)}}>
+                      <span style={S.rankMedal}>
+                        {i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}位`}
+                      </span>
+                      <span style={S.rankName}>{h.name}</span>
+                      <span style={S.rankStat}>
+                        累計 {h.total.toFixed(1)}pt　平均 {h.avg}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* ── アーカイブ詳細モーダル ── */}
+      {archiveModal && (
+        <div style={S.overlay} onClick={()=>setArchiveModal(null)}>
+          <div style={S.modal} onClick={e=>e.stopPropagation()}>
+            <div style={S.modalTitle}>{archiveModal.label} 詳細</div>
+            <div style={{overflowX:"auto"}}>
+              <table style={S.table}>
+                <thead>
+                  <tr style={S.thead}>
+                    {["習慣名","開始日","達成日数","達成率","スコア"].map(h=>(
+                      <th key={h} style={S.th}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {archiveModal.habits.filter(h=>h.active).map((h,i)=>(
+                    <tr key={i} style={i%2===0?{background:"rgba(255,255,255,0.03)"}:{}}>
+                      <td style={S.td}>{h.name}</td>
+                      <td style={S.tdc}>
+                        {(h.startDay??1)===1?"月初":`${h.startDay}日`}
+                      </td>
+                      <td style={S.tdc}>{h.checked}日</td>
+                      <td style={{...S.tdc,
+                        color:h.rate>=80?"#22c55e":h.rate>=50?"#f59e0b":"#ef4444",
+                        fontWeight:700}}>{h.rate}%</td>
+                      <td style={{...S.tdc,color:"#fbbf24",fontWeight:700}}>{h.score}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button style={{...S.btnSec,marginTop:20}} onClick={()=>setArchiveModal(null)}>
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── アーカイブ確認ダイアログ ── */}
+      {confirmReset && (
+        <div style={S.overlay} onClick={()=>setConfirmReset(false)}>
+          <div style={S.modal} onClick={e=>e.stopPropagation()}>
+            <div style={S.modalTitle}>📦 月をアーカイブ & リセット</div>
+            <p style={{color:"#94a3b8",lineHeight:1.9,marginBottom:24}}>
+              <strong style={{color:"#fbbf24"}}>{labelOf(currentMonth)}</strong> のデータを保存して、<br/>
+              チェックをリセットし新しい月を開始します。<br/>
+              <span style={{color:"#f87171"}}>※ この操作は元に戻せません。</span>
+            </p>
+            <div style={{display:"flex",gap:12}}>
+              <button style={{...S.btnPri,background:"#b91c1c"}} onClick={archiveAndReset}>
+                実行する
+              </button>
+              <button style={S.btnSec} onClick={()=>setConfirmReset(false)}>
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── トースト ── */}
+      {toast && (
+        <div style={{...S.toast,background:toast.type==="error"?"#b91c1c":"#15803d"}}>
+          {toast.msg}
+        </div>
+      )}
+
+      {/* ── スマホ下部ナビ ── */}
+      <nav style={S.mobileNav}>
+        {TABS.map(({key,icon,label})=>(
+          <button key={key} onClick={()=>setTab(key)}
+            style={{...S.mobileNavBtn,...(tab===key?S.mobileNavBtnOn:{})}}>
+            <span style={{fontSize:20}}>{icon}</span>
+            <span style={{fontSize:10,marginTop:2}}>{label}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+// ── スタイル ────────────────────────────────────────────────
+const S = {
+  root:     { minHeight:"100vh", background:"#0f0f1a", color:"#e8e8f0",
+              fontFamily:"'Noto Sans JP',sans-serif", position:"relative",
+              paddingBottom:72 },
+  bg1:      { position:"fixed", top:-200, right:-200, width:600, height:600,
+              borderRadius:"50%", pointerEvents:"none",
+              background:"radial-gradient(circle,rgba(52,152,219,.07) 0%,transparent 70%)" },
+  bg2:      { position:"fixed", bottom:-150, left:-100, width:500, height:500,
+              borderRadius:"50%", pointerEvents:"none",
+              background:"radial-gradient(circle,rgba(155,89,182,.07) 0%,transparent 70%)" },
+
+  header:   { background:"rgba(15,15,26,.96)", backdropFilter:"blur(12px)",
+              borderBottom:"1px solid rgba(255,255,255,.07)",
+              position:"sticky", top:0, zIndex:100 },
+  headerInner:{ maxWidth:1400, margin:"0 auto", padding:"14px 16px",
+                display:"flex", justifyContent:"space-between", alignItems:"center" },
+  headerTitle:{ fontSize:20, fontWeight:700, letterSpacing:1.5 },
+  headerSub:  { fontSize:12, color:"#64748b", marginTop:2 },
+  headerBadges:{ display:"flex", gap:10 },
+  badge:    { background:"rgba(255,255,255,.05)", borderRadius:10,
+              padding:"8px 14px", textAlign:"center",
+              border:"1px solid rgba(255,255,255,.08)" },
+  badgeNum: { display:"block", fontSize:20, fontWeight:700, color:"#60a5fa" },
+  badgeLbl: { display:"block", fontSize:10, color:"#64748b", marginTop:1 },
+
+  tabs:     { maxWidth:1400, margin:"0 auto", padding:"0 16px",
+              display:"flex", gap:2, borderTop:"1px solid rgba(255,255,255,.05)" },
+  tab:      { background:"transparent", border:"none", color:"#64748b",
+              padding:"10px 16px", cursor:"pointer", fontSize:13, fontWeight:500,
+              borderBottom:"2px solid transparent", transition:"all .2s",
+              display:"none" },
+  tabOn:    { color:"#60a5fa", borderBottom:"2px solid #60a5fa",
+              background:"rgba(96,165,250,.05)" },
+
+  main:     { maxWidth:1400, margin:"0 auto", padding:"16px 12px" },
+  section:  { display:"flex", flexDirection:"column", gap:20 },
+  secTitle: { fontSize:15, fontWeight:700, color:"#e8e8f0", marginBottom:4 },
+
+  toolbar:  { display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" },
+  btnPri:   { background:"#2563eb", color:"#fff", border:"none", borderRadius:8,
+              padding:"10px 16px", cursor:"pointer", fontSize:13, fontWeight:600 },
+  btnSec:   { background:"rgba(255,255,255,.08)", color:"#e8e8f0",
+              border:"1px solid rgba(255,255,255,.12)", borderRadius:8,
+              padding:"10px 16px", cursor:"pointer", fontSize:13 },
+  // 「＋ 習慣を追加」ボタン
+  btnAdd:   { background:"rgba(37,99,235,.15)", color:"#60a5fa",
+              border:"1px solid rgba(37,99,235,.4)", borderRadius:8,
+              padding:"10px 16px", cursor:"pointer", fontSize:13, fontWeight:600,
+              display:"flex", alignItems:"center", gap:8 },
+  habitCount:{ fontSize:11, color:"#64748b", background:"rgba(255,255,255,.06)",
+               borderRadius:4, padding:"1px 6px" },
+
+  // グリッド
+  gridWrap: { overflowX:"auto", borderRadius:12,
+              border:"1px solid rgba(255,255,255,.07)" },
+  gridScroll:{ minWidth:"max-content" },
+  gridRow:  { display:"flex", alignItems:"center",
+              borderBottom:"1px solid rgba(255,255,255,.04)" },
+  gridRowEven:{ background:"rgba(255,255,255,.02)" },
+  nameCell: { width:130, minWidth:130, padding:"6px 10px",
+              borderRight:"1px solid rgba(255,255,255,.07)",
+              position:"sticky", left:0, background:"#0f0f1a", zIndex:10 },
+  habitName:{ fontSize:11, color:"#cbd5e1", whiteSpace:"nowrap" },
+  // 「〇日〜」バッジ（月途中追加の表示）
+  startDayBadge:{ fontSize:9, color:"#f59e0b", background:"rgba(245,158,11,.12)",
+                  borderRadius:3, padding:"1px 5px", marginTop:2,
+                  display:"inline-block" },
+  eyeBtn:   { background:"none", border:"none", cursor:"pointer", fontSize:12, padding:2 },
+  nameInput:{ width:84, background:"rgba(255,255,255,.07)",
+              border:"1px solid rgba(255,255,255,.15)", borderRadius:4,
+              color:"#e8e8f0", fontSize:11, padding:"3px 6px" },
+  delBtn:   { background:"none", border:"none", cursor:"pointer",
+              fontSize:11, color:"#ef4444", padding:"2px 4px",
+              borderRadius:3, lineHeight:1 },
+
+  dayHead:  { width:32, minWidth:32, textAlign:"center", padding:"4px 1px" },
+  dayHeadToday:{ background:"rgba(96,165,250,.12)", borderRadius:4 },
+  dayNum:   { fontSize:10, fontWeight:600, color:"#64748b" },
+  dayDow:   { fontSize:9, color:"#374151" },
+
+  chk:      { width:26, height:26, margin:"2px 3px", borderRadius:5,
+              border:"1px solid rgba(255,255,255,.1)",
+              background:"rgba(255,255,255,.03)", color:"transparent",
+              cursor:"pointer", fontSize:13, fontWeight:700,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              transition:"all .12s", flexShrink:0 },
+  chkOn:    { background:"#2563eb", borderColor:"#2563eb", color:"#fff",
+              boxShadow:"0 0 8px rgba(37,99,235,.5)" },
+  chkToday: { borderColor:"#60a5fa" },
+  // startDay より前のセル：グレーアウトして操作不可
+  chkInactive:{ background:"rgba(255,255,255,.01)", borderColor:"rgba(255,255,255,.04)",
+                cursor:"not-allowed", opacity:0.25 },
+
+  statHead: { width:72, minWidth:72, padding:"4px 6px", textAlign:"center",
+              fontSize:10, color:"#64748b" },
+  statCell: { width:72, minWidth:72, padding:"4px 6px", textAlign:"center", fontSize:11 },
+  rateTrack:{ height:3, background:"rgba(255,255,255,.08)", borderRadius:2,
+              marginBottom:2, overflow:"hidden" },
+  rateFill: { height:"100%", borderRadius:2, transition:"width .4s" },
+  rateNum:  { fontSize:10, color:"#94a3b8" },
+  effDaysNote:{ display:"block", fontSize:9, color:"#64748b", marginTop:1 },
+
+  weekBox:  { background:"rgba(255,255,255,.03)", borderRadius:12, padding:16,
+              border:"1px solid rgba(255,255,255,.07)" },
+  weekRow:  { display:"flex", gap:20, flexWrap:"wrap", marginTop:12 },
+  weekCard: { textAlign:"center" },
+  weekLbl:  { fontSize:11, color:"#64748b", marginBottom:6 },
+
+  kpiGrid:  { display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:12 },
+  kpiCard:  { background:"rgba(255,255,255,.04)", borderRadius:12, padding:16,
+              border:"1px solid rgba(255,255,255,.07)" },
+  kpiVal:   { fontSize:28, fontWeight:700, lineHeight:1 },
+  kpiLbl:   { fontSize:11, color:"#64748b", marginTop:6 },
+
+  card:     { background:"rgba(255,255,255,.03)", borderRadius:12, padding:16,
+              border:"1px solid rgba(255,255,255,.07)" },
+  cardTitle:{ fontSize:13, fontWeight:700, color:"#e8e8f0", marginBottom:14 },
+  barRow:   { display:"flex", alignItems:"center", gap:10, marginBottom:10 },
+  barName:  { width:110, minWidth:110, fontSize:11, color:"#cbd5e1",
+              whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" },
+  barTrack: { flex:1, height:7, background:"rgba(255,255,255,.07)",
+              borderRadius:4, overflow:"hidden" },
+  barFill:  { height:"100%", borderRadius:4, transition:"width .5s" },
+  barStat:  { minWidth:72, textAlign:"right", fontSize:11 },
+
+  table:    { width:"100%", borderCollapse:"collapse", fontSize:12 },
+  thead:    { background:"rgba(255,255,255,.05)" },
+  th:       { padding:"9px 10px", color:"#64748b", fontWeight:600, textAlign:"center",
+              borderBottom:"1px solid rgba(255,255,255,.07)", whiteSpace:"nowrap" },
+  td:       { padding:"9px 10px", color:"#cbd5e1",
+              borderBottom:"1px solid rgba(255,255,255,.04)" },
+  tdc:      { padding:"9px 10px", color:"#cbd5e1", textAlign:"center",
+              borderBottom:"1px solid rgba(255,255,255,.04)" },
+
+  archCard: { display:"flex", justifyContent:"space-between", alignItems:"center",
+              background:"rgba(255,255,255,.04)", borderRadius:12, padding:"14px 20px",
+              border:"1px solid rgba(255,255,255,.07)", cursor:"pointer" },
+  archMonth:{ fontSize:17, fontWeight:700 },
+  archSub:  { fontSize:11, color:"#64748b", marginTop:4 },
+
+  chartArea:{ display:"flex", alignItems:"flex-end", gap:8, height:160, paddingTop:16 },
+  chartCol: { flex:1, display:"flex", flexDirection:"column", alignItems:"center" },
+  chartBarWrap:{ flex:1, display:"flex", alignItems:"flex-end", width:"100%" },
+  chartBar: { width:"100%", borderRadius:"4px 4px 0 0", minHeight:4, transition:"height .5s" },
+  chartLbl: { fontSize:10, color:"#64748b", marginTop:5 },
+  chartVal: { fontSize:11, fontWeight:700 },
+
+  sparkRow: { display:"flex", alignItems:"center", gap:10, marginBottom:10 },
+  sparkName:{ width:100, minWidth:100, fontSize:11, color:"#cbd5e1", whiteSpace:"nowrap" },
+  sparkTrack:{ flex:1, display:"flex", alignItems:"flex-end", height:52, gap:3 },
+  sparkCol: { flex:1, display:"flex", flexDirection:"column", alignItems:"center" },
+  sparkBar: { width:"100%", borderRadius:"2px 2px 0 0", minHeight:2, transition:"height .4s" },
+  sparkLbl: { fontSize:9, color:"#374151", marginTop:2 },
+
+  rankRow:  { display:"flex", alignItems:"center", gap:12, padding:"11px 0",
+              borderBottom:"1px solid rgba(255,255,255,.04)" },
+  rankMedal:{ fontSize:20, minWidth:38 },
+  rankName: { flex:1, fontSize:13, fontWeight:600 },
+  rankStat: { fontSize:11, color:"#64748b" },
+
+  overlay:  { position:"fixed", inset:0, background:"rgba(0,0,0,.72)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              zIndex:200, backdropFilter:"blur(4px)", animation:"fadeIn .2s" },
+  modal:    { background:"#1a1a2e", borderRadius:16, padding:28, maxWidth:560,
+              width:"92%", border:"1px solid rgba(255,255,255,.12)",
+              boxShadow:"0 24px 64px rgba(0,0,0,.6)", maxHeight:"85vh", overflowY:"auto" },
+  modalTitle:{ fontSize:18, fontWeight:700, marginBottom:18 },
+
+  toast:    { position:"fixed", bottom:88, right:16, padding:"13px 20px",
+              borderRadius:10, color:"#fff", fontWeight:600, fontSize:13,
+              boxShadow:"0 8px 24px rgba(0,0,0,.4)", zIndex:300,
+              animation:"slideUp .3s ease" },
+
+  empty:    { textAlign:"center", color:"#64748b", fontSize:13, lineHeight:2.2,
+              padding:48, background:"rgba(255,255,255,.02)", borderRadius:12,
+              border:"1px dashed rgba(255,255,255,.1)" },
+
+  mobileNav:{ position:"fixed", bottom:0, left:0, right:0,
+              background:"rgba(15,15,26,.97)", backdropFilter:"blur(12px)",
+              borderTop:"1px solid rgba(255,255,255,.08)",
+              display:"flex", zIndex:150,
+              paddingBottom:"env(safe-area-inset-bottom)" },
+  mobileNavBtn:{ flex:1, background:"none", border:"none", color:"#64748b",
+                  padding:"10px 0", cursor:"pointer", fontSize:11,
+                  display:"flex", flexDirection:"column", alignItems:"center",
+                  transition:"color .15s" },
+  mobileNavBtnOn:{ color:"#60a5fa" },
+};
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
