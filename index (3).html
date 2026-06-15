@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Momentum">
+<meta name="theme-color" content="#09090E">
+<title>Momentum</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%}
+body{background:#09090E;color:#EFEFFA;font-family:'Inter','Noto Sans JP',sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none;-webkit-font-smoothing:antialiased;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:inherit}
+input:focus,textarea:focus{outline:none}
+::-webkit-scrollbar{width:0;height:0}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes popIn{0%{transform:scale(.9);opacity:0}55%{transform:scale(1.03)}100%{transform:scale(1);opacity:1}}
+@keyframes checkBounce{0%{transform:scale(1)}30%{transform:scale(1.28)}65%{transform:scale(.9)}100%{transform:scale(1)}}
+@keyframes rippleOut{0%{opacity:.55;transform:scale(.3)}100%{opacity:0;transform:scale(3.2)}}
+@keyframes confettiFall{0%{opacity:1;transform:translateY(-8px) rotate(0deg)}100%{opacity:0;transform:translateY(160px) rotate(720deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+@keyframes glow{0%,100%{box-shadow:0 0 20px rgba(99,102,241,.22)}50%{box-shadow:0 0 44px rgba(99,102,241,.5),0 0 72px rgba(99,102,241,.12)}}
+@keyframes microSlide{from{transform:translateY(-6px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes onboardIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes weekReportIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+@keyframes chainPulse{0%,100%{border-color:rgba(6,182,212,.25)}50%{border-color:rgba(6,182,212,.65)}}
+
+/* layout */
+.page{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding-bottom:96px;animation:fadeIn .2s ease}
+.sheet-wrap{position:fixed;inset:0;z-index:300;display:flex;align-items:flex-end}
+.sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(14px);animation:fadeIn .18s ease}
+.sheet-panel{position:relative;z-index:1;width:100%;background:#101018;border-radius:28px 28px 0 0;padding:26px 20px 52px;max-height:93vh;overflow-y:auto;animation:slideUp .25s cubic-bezier(.22,1,.36,1);border-top:1px solid #1C1C2A}
+.sheet-handle{width:34px;height:4px;border-radius:2px;background:#282838;margin:0 auto 22px}
+
+/* cards */
+.hcard{position:relative;overflow:hidden;border-radius:22px;transition:transform .1s ease}
+.hcard:active{transform:scale(.973)}
+.ecard{border-radius:20px;border:1px solid rgba(99,102,241,.2);background:#0D0D16;animation:popIn .2s ease;overflow:hidden}
+.ripple{position:absolute;border-radius:50%;pointer-events:none;animation:rippleOut .65s ease-out forwards}
+.glow-card{animation:glow 3s ease-in-out infinite}
+.shimmer{background:linear-gradient(90deg,#818cf8,#c084fc,#818cf8);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 2.8s linear infinite}
+
+/* nav */
+.nav-btn{flex:1;padding:10px 0 8px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;font-weight:600;letter-spacing:.3px;transition:color .15s;color:#363650}
+.nav-btn.active{color:#818cf8}
+.nav-btn.active svg{filter:drop-shadow(0 0 6px rgba(129,140,248,.6))}
+
+/* onboarding */
+.ob-wrap{position:fixed;inset:0;z-index:500;background:#09090E;display:flex;flex-direction:column;padding:0;overflow:hidden}
+.ob-screen{flex:1;display:flex;flex-direction:column;justify-content:center;padding:40px 28px;animation:onboardIn .3s ease}
+.ob-progress{height:3px;background:#1C1C2A;position:relative}
+.ob-progress-fill{height:100%;background:linear-gradient(90deg,#6366f1,#818cf8);transition:width .4s cubic-bezier(.22,1,.36,1)}
+.step-dot{height:3px;border-radius:2px;transition:all .35s}
+
+/* micro habit */
+.micro-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;borderRadius:6px;background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.25);color:#06b6d4;font-size:9px;font-weight:700;letter-spacing:.4px}
+
+/* chain */
+.chain-indicator{animation:chainPulse 2.5s ease-in-out infinite}
+
+/* week report */
+.week-report{animation:weekReportIn .3s ease;border-radius:22px;overflow:hidden}
+
+/* skip options */
+.skip-opt{padding:13px 16px;border-radius:13px;border:1px solid #1C1C2A;background:#0D0D16;margin-bottom:8px;cursor:pointer;transition:all .15s;text-align:left;width:100%}
+.skip-opt.sel{border-color:rgba(99,102,241,.45);background:#11112A}
+
+/* mood buttons */
+.mood-btn{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:21px;transition:all .15s;border:2px solid transparent;cursor:pointer;background:#0D0D16}
+.mood-btn.active{border-color:#818cf8;background:rgba(99,102,241,.14);transform:scale(1.12)}
+.mood-btn:active{transform:scale(.9)}
+
+/* diff badge */
+.diff-tag{padding:2px 7px;border-radius:5px;font-size:9px;font-weight:700;letter-spacing:.4px}
+
+/* confetti */
+.cp{position:fixed;pointer-events:none;z-index:500;width:7px;height:7px;border-radius:2px;animation:confettiFall .95s ease-in forwards}
+
+/* calendar */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:6px}
+.cal-cell{aspect-ratio:1;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'Inter',sans-serif}
+
+/* input styles */
+.field{width:100%;padding:14px;background:#0D0D16;border:1px solid #1C1C2A;border-radius:14px;color:#EFEFFA;font-size:14px}
+.field:focus{border-color:rgba(99,102,241,.5)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useMemo,useRef} = React;
+
+/* ═══════════════════════════════════
+   定数
+═══════════════════════════════════ */
+const HK="mb_v3",AK="ma_v3",RK="ref_v3",MAX=20;
+const DOW=["日","月","火","水","木","金","土"];
+const CC=["#6366f1","#22c55e","#f59e0b","#ec4899","#06b6d4","#a855f7"];
+const MOODS=[{e:"😔",l:"しんどい",v:1},{e:"😐",l:"普通",v:2},{e:"🙂",l:"まあまあ",v:3},{e:"😊",l:"良い",v:4},{e:"🔥",l:"最高",v:5}];
+const SKIP_REASONS=[
+  {id:"tired",emoji:"😴",label:"疲れていた"},
+  {id:"busy",emoji:"⏰",label:"時間がなかった"},
+  {id:"forgot",emoji:"🤔",label:"忘れていた"},
+  {id:"sick",emoji:"🤒",label:"体調不良"},
+  {id:"mood",emoji:"😞",label:"気分が乗らなかった"},
+  {id:"other",emoji:"💬",label:"その他"},
+];
+const DIFFS=[
+  {id:"easy",  label:"簡単", mult:.8,  color:"#22c55e", desc:"5分以内"},
+  {id:"medium",label:"普通", mult:1.0, color:"#818cf8", desc:"10〜30分"},
+  {id:"hard",  label:"困難", mult:1.5, color:"#f59e0b", desc:"30分以上"},
+];
+
+/* ═══════════════════════════════════
+   ユーティリティ
+═══════════════════════════════════ */
+const p2=n=>String(n).padStart(2,"0");
+const rYM=()=>{const d=new Date();return`${d.getFullYear()}-${p2(d.getMonth()+1)}`;};
+const rDay=()=>new Date().getDate();
+const rDow=()=>new Date().getDay();
+const dim=ym=>{const[y,m]=ym.split("-").map(Number);return new Date(y,m,0).getDate();};
+const ymLbl=ym=>{const[y,m]=ym.split("-").map(Number);return`${y}年${m}月`;};
+const dayLbl=()=>{const d=new Date();return`${d.getMonth()+1}月${d.getDate()}日（${DOW[d.getDay()]}）`;};
+
+/* 今週の月曜〜日曜 YYYY-MM-DD 配列を返す */
+const thisWeekDays=()=>{
+  const today=new Date();
+  const dow=today.getDay();
+  const mon=new Date(today);mon.setDate(today.getDate()-(dow===0?6:dow-1));
+  return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;});
+};
+
+const newHabit=(startDay=1)=>({
+  id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+  name:"習慣",
+  why:"",            // なぜやるか
+  microHabit:"",     // ★NEW やる気ゼロ日用の最小行動
+  envDesign:"",      // ★NEW 環境設計メモ
+  difficulty:"medium",
+  chainAfter:"",     // ★NEW If-Then: 別習慣IDの後に行う
+  checks:{},
+  skips:{},
+  startDay,
+  active:true,
+  shieldUsed:{},
+  createdAt:new Date().toISOString(),
+  color:CC[Math.floor(Math.random()*CC.length)],
+});
+
+/* ═══════════════════════════════════
+   ストレージ
+═══════════════════════════════════ */
+const load=()=>{
+  try{
+    const habits=JSON.parse(localStorage.getItem(HK)||"null")||[newHabit(1)];
+    const archive=JSON.parse(localStorage.getItem(AK)||"{}");
+    const reflections=JSON.parse(localStorage.getItem(RK)||"{}");
+    const migrated=habits.map(h=>({
+      why:"",microHabit:"",envDesign:"",difficulty:"medium",
+      chainAfter:"",skips:{},shieldUsed:{},...h
+    }));
+    return{habits:migrated,archive,reflections};
+  }catch{return{habits:[newHabit(1)],archive:{},reflections:{}};}
+};
+const persist=(h,a,r)=>{
+  localStorage.setItem(HK,JSON.stringify(h));
+  localStorage.setItem(AK,JSON.stringify(a));
+  localStorage.setItem(RK,JSON.stringify(r));
+};
+
+/* ═══════════════════════════════════
+   Momentum計算（難易度倍率対応）
+═══════════════════════════════════ */
+const calcMomentum=habit=>{
+  const diff=DIFFS.find(d=>d.id===habit.difficulty)||DIFFS[1];
+  let m=0,pen=1.0;
+  const today=new Date();
+  for(let i=0;i<60;i++){
+    const d=new Date(today);d.setDate(today.getDate()-i);
+    const ym=`${d.getFullYear()}-${p2(d.getMonth()+1)}`;
+    const day=d.getDate();
+    const checked=!!(habit.checks[ym]||{})[day];
+    const skipped=!!(habit.skips[ym]||{})[day];
+    const shielded=!!(habit.shieldUsed[ym]);
+    if(checked){m+=diff.mult*pen;pen=Math.min(pen+0.15,1.0);}
+    else if(i===0){}
+    else if(skipped||shielded){pen*=0.85;}
+    else{pen*=0.65;if(pen<0.08)break;}
+  }
+  return Math.round(m*10)/10;
+};
+
+const predictMomentum=habit=>{
+  const cur=calcMomentum(habit);
+  const diff=DIFFS.find(d=>d.id===habit.difficulty)||DIFFS[1];
+  const next=[5,10,20,50,100].find(t=>t>cur)||100;
+  return{cur,next,days:Math.ceil((next-cur)/diff.mult)};
+};
+
+const calcStreak=habit=>{
+  const today=new Date();let s=0;
+  for(let i=0;i<365;i++){
+    const d=new Date(today);d.setDate(today.getDate()-i);
+    const ym=`${d.getFullYear()}-${p2(d.getMonth()+1)}`;
+    if(i===0&&!(habit.checks[ym]||{})[d.getDate()])continue;
+    if((habit.checks[ym]||{})[d.getDate()]||(habit.shieldUsed[ym]&&i>0)){s++;}else break;
+  }
+  return s;
+};
+
+const calcStats=(habit,ym)=>{
+  const today=new Date();
+  const[y,m]=ym.split("-").map(Number);
+  const isNow=y===today.getFullYear()&&m===today.getMonth()+1;
+  const start=habit.startDay??1,end=isNow?today.getDate():dim(ym),eff=Math.max(0,end-start+1);
+  const mc=habit.checks[ym]||{};
+  const checked=Object.entries(mc).filter(([d,v])=>v&&Number(d)>=start).length;
+  const rate=eff>0?Math.round(checked/eff*100):0;
+  const firstDow=new Date(y,m-1,1).getDay();
+  const weeks=[0,1,2,3,4].map(w=>{
+    let cnt=0,tot=0;
+    for(let d=start;d<=end;d++){if(Math.floor((d-1+firstDow)/7)===w){tot++;if(mc[d])cnt++;}}
+    return tot>0?Math.round(cnt/tot*100):null;
+  });
+  return{checked,eff,start,end,rate,weeks};
+};
+
+const analyzeSkips=habit=>{
+  const dow=[0,0,0,0,0,0,0],reasons={};let total=0;
+  Object.entries(habit.skips||{}).forEach(([ym])=>{
+    const[yr,mn]=ym.split("-").map(Number);
+    Object.entries(habit.skips[ym]||{}).forEach(([day,info])=>{
+      const d=new Date(yr,mn-1,Number(day));dow[d.getDay()]++;total++;
+      if(info.reason)reasons[info.reason]=(reasons[info.reason]||0)+1;
+    });
+  });
+  const worstDow=dow.indexOf(Math.max(...dow));
+  const topR=Object.entries(reasons).sort((a,b)=>b[1]-a[1])[0];
+  return{dow,worstDow,topR,total};
+};
+
+/* ★ 週次レポートデータ生成 */
+const buildWeekReport=(habits,reflections)=>{
+  const days=thisWeekDays();
+  const ym=rYM();
+  const active=habits.filter(h=>h.active);
+
+  // 日別完了数
+  const dailyDone=days.map(dateStr=>{
+    const[,, dd]=dateStr.split("-");
+    const day=Number(dd);
+    const dayYm=dateStr.slice(0,7);
+    return{
+      date:dateStr,
+      dow:(()=>{const[y,m,d]=dateStr.split("-").map(Number);return DOW[new Date(y,m-1,d).getDay()];})(),
+      done:active.filter(h=>!!(h.checks[dayYm]||{})[day]).length,
+      total:active.length,
+      mood:reflections[dateStr]?.mood||null,
+    };
+  });
+
+  // 習慣別週間達成率
+  const habitWeek=active.map(h=>{
+    let done=0;
+    days.forEach(dateStr=>{
+      const[,, dd]=dateStr.split("-");
+      const dayYm=dateStr.slice(0,7);
+      if((h.checks[dayYm]||{})[Number(dd)])done++;
+    });
+    return{name:h.name,done,total:days.length,pct:Math.round(done/days.length*100),momentum:calcMomentum(h)};
+  }).sort((a,b)=>b.pct-a.pct);
+
+  const bestDay=dailyDone.reduce((a,b)=>b.done>a.done?b:a,dailyDone[0]);
+  const totalChecks=dailyDone.reduce((s,d)=>s+d.done,0);
+  const maxPossible=active.length*7;
+  const weekRate=maxPossible>0?Math.round(totalChecks/maxPossible*100):0;
+  const avgMood=days.map(d=>reflections[d]?.mood).filter(Boolean);
+  const moodAvg=avgMood.length>0?(avgMood.reduce((s,v)=>s+v,0)/avgMood.length).toFixed(1):null;
+
+  return{dailyDone,habitWeek,bestDay,weekRate,totalChecks,maxPossible,moodAvg};
+};
+
+/* ★ インサイト生成（拡張版） */
+const buildInsights=habits=>{
+  const ym=rYM(),td=rDay(),dow=rDow();
+  const ins=[];
+  habits.filter(h=>h.active).forEach(h=>{
+    const m=calcMomentum(h),mc=h.checks[ym]||{};
+    const{worstDow,topR,total}=analyzeSkips(h);
+    const done=Object.values(mc).filter(Boolean).length;
+    const rate=td>0?Math.round(done/td*100):0;
+    const streak=calcStreak(h);
+    const p=predictMomentum(h);
+    if(dow===worstDow&&total>=3&&!mc[td])
+      ins.push({type:"warning",n:h.name,msg:`${DOW[worstDow]}曜はスキップしやすい傾向。今日こそ続けましょう。`,icon:"⚠️",pri:4});
+    if(m>=15&&!mc[td])
+      ins.push({type:"encourage",n:h.name,msg:`Momentum ${m}まで積み上がっています。今日も続けてこの慣性を守りましょう。`,icon:"⚡",pri:3});
+    if(rate<40&&td>=7)
+      ins.push({type:"concern",n:h.name,msg:`今月の達成率が${rate}%です。Micro Habitを設定して小さく継続しましょう。`,icon:"💡",pri:2});
+    if(streak===7||streak===14||streak===30||streak===60)
+      ins.push({type:"milestone",n:h.name,msg:`「${h.name}」${streak}日連続達成！`,icon:"🏆",pri:6});
+    if(p.days<=3&&p.cur<p.next)
+      ins.push({type:"predict",n:h.name,msg:`あと${p.days}日続けるとMomentumが⚡${p.next}を超えます！`,icon:"🎯",pri:3});
+    // Micro Habit 提案（達成率低 & micro未設定）
+    if(rate<50&&!h.microHabit&&td>=5)
+      ins.push({type:"micro",n:h.name,msg:`「${h.name}」の最小行動（Micro Habit）を設定すると、やる気ゼロの日でも続けられます。`,icon:"🌱",pri:2});
+    // If-Then 提案
+    if(!h.chainAfter&&habits.filter(x=>x.active).length>=2)
+      ins.push({type:"chain",n:h.name,msg:`「${h.name}」を別の習慣の後に行うIf-Thenルールを設定すると達成率が上がります。`,icon:"🔗",pri:1});
+    if(topR&&topR[1]>=3){
+      const r=SKIP_REASONS.find(x=>x.id===topR[0]);
+      if(r)ins.push({type:"pattern",n:h.name,msg:`「${r.label}」でのSkipが多い傾向。環境設計で解決できるかもしれません。`,icon:"📊",pri:2});
+    }
+  });
+  const allDone=habits.filter(h=>h.active).every(h=>!!(h.checks[ym]||{})[td]);
+  if(allDone&&habits.filter(h=>h.active).length>0)
+    ins.push({type:"celebrate",n:"all",msg:"今日の全習慣を達成！この積み重ねが未来の自分を変えます。",icon:"🎉",pri:10});
+  return ins.sort((a,b)=>b.pri-a.pri).slice(0,4);
+};
+
+const calcCorr=(h1,h2)=>{
+  const ym=rYM(),mc1=h1.checks[ym]||{},mc2=h2.checks[ym]||{};
+  let both=0,either=0;
+  for(let d=1;d<=rDay();d++){const a=!!mc1[d],b=!!mc2[d];if(a&&b)both++;if(a||b)either++;}
+  return either>4?Math.round(both/either*100):null;
+};
+
+const runAutoArchive=(habits,archive)=>{
+  const rym=rYM();let nA={...archive},nH=habits,did=false;
+  const months=new Set();
+  habits.forEach(h=>{Object.keys(h.checks||{}).forEach(ym=>months.add(ym));Object.keys(h.skips||{}).forEach(ym=>months.add(ym));});
+  months.forEach(ym=>{
+    if(ym>=rym||nA[ym])return;
+    const d=dim(ym);
+    nA={...nA,[ym]:{ym,label:ymLbl(ym),archivedAt:new Date().toISOString(),daysInMonth:d,
+      habits:habits.map(h=>{
+        const st=h.startDay??1,mc=h.checks[ym]||{},sk=h.skips[ym]||{};
+        const checked=Object.entries(mc).filter(([day,v])=>v&&Number(day)>=st).length;
+        const eff=Math.max(0,d-st+1);
+        return{name:h.name,id:h.id,why:h.why||"",microHabit:h.microHabit||"",
+          difficulty:h.difficulty||"medium",checked,
+          skipped:Object.keys(sk).filter(day=>Number(day)>=st).length,
+          rate:eff>0?Math.round(checked/eff*100):0,
+          momentum:calcMomentum(h),startDay:st};
+      })}};
+    did=true;
+  });
+  if(did)nH=habits.map(h=>({...h,startDay:1}));
+  return{habits:nH,archive:nA,did};
+};
+
+const spawnConfetti=()=>{for(let i=0;i<32;i++){const el=document.createElement("div");el.className="cp";el.style.cssText=`left:${Math.random()*100}vw;top:${12+Math.random()*38}vh;background:${CC[i%CC.length]};animation-delay:${Math.random()*.42}s;animation-duration:${.75+Math.random()*.55}s;transform:rotate(${Math.random()*360}deg);border-radius:${Math.random()>.5?"50%":"2px"};`;document.body.appendChild(el);setTimeout(()=>el.remove(),1500);}};
+
+/* ═══════════════════════════════════════════════
+   メインアプリ
+═══════════════════════════════════════════════ */
+function App(){
+  const[st,setSt]=useState(()=>{const l=load();const{habits,archive}=runAutoArchive(l.habits,l.archive);return{habits,archive,reflections:l.reflections};});
+  const[screen,setScreen]=useState("today");
+  const[detail,setDetail]=useState(null);
+  const[editMode,setEditMode]=useState(false);
+  const[toast,setToast]=useState(null);
+  const[skipTarget,setSkipTarget]=useState(null);
+  const[showInsights,setShowInsights]=useState(false);
+  const[onboarding,setOnboarding]=useState(()=>!localStorage.getItem(HK));
+  const[reflectOpen,setReflectOpen]=useState(false);
+  const[showMicro,setShowMicro]=useState(null); // habitId
+  const prevDone=useRef(0);
+
+  const{habits,archive,reflections}=st;
+  const ym=rYM(),td=rDay();
+
+  useEffect(()=>{persist(habits,archive,reflections);},[habits,archive,reflections]);
+  useEffect(()=>{const t=setInterval(()=>{setSt(prev=>{const{habits:h,archive:a,did}=runAutoArchive(prev.habits,prev.archive);return did?{...prev,habits:h,archive:a}:prev;});},60000);return()=>clearInterval(t);},[]);
+
+  // 夕方18時以降にリフレクション促進
+  useEffect(()=>{
+    if(new Date().getHours()>=18&&!reflections[`${ym}-${p2(td)}`]&&habits.filter(h=>h.active).length>0){
+      const t=setTimeout(()=>setReflectOpen(true),4000);return()=>clearTimeout(t);
+    }
+  },[]);
+
+  const showToast=useCallback(msg=>{setToast(msg);setTimeout(()=>setToast(null),3200);},[]);
+
+  const toggleToday=useCallback(id=>{
+    setSt(prev=>({...prev,habits:prev.habits.map(h=>{if(h.id!==id)return h;const mc={...(h.checks[ym]||{})};mc[td]=!mc[td];return{...h,checks:{...h.checks,[ym]:mc}};})}));
+  },[ym,td]);
+
+  const recordSkip=useCallback((id,reason,note="")=>{
+    setSt(prev=>({...prev,habits:prev.habits.map(h=>{if(h.id!==id)return h;const sk={...(h.skips[ym]||{})};sk[td]={reason,note,ts:Date.now()};const mc={...(h.checks[ym]||{})};mc[td]=false;return{...h,checks:{...h.checks,[ym]:mc},skips:{...h.skips,[ym]:sk}};})}));
+    setSkipTarget(null);showToast("Skip記録完了。理由の蓄積がパターンを明らかにします。");
+  },[ym,td,showToast]);
+
+  const useShield=useCallback(id=>{
+    setSt(prev=>({...prev,habits:prev.habits.map(h=>{if(h.id!==id||h.shieldUsed[ym])return h;return{...h,shieldUsed:{...h.shieldUsed,[ym]:true}};})}));
+    showToast("🛡 Streak Shieldを使用。今月のStreakを保護します。");
+  },[ym,showToast]);
+
+  const updateHabit=useCallback((id,fields)=>{setSt(prev=>({...prev,habits:prev.habits.map(h=>h.id===id?{...h,...fields}:h)}));},[]);
+  const saveReflection=useCallback((mood,note)=>{const k=`${ym}-${p2(td)}`;setSt(prev=>({...prev,reflections:{...prev.reflections,[k]:{mood,note,ts:Date.now()}}}));setReflectOpen(false);showToast("振り返りを記録しました 📝");},[ym,td,showToast]);
+  const addHabit=useCallback(()=>{if(habits.length>=MAX)return;setSt(prev=>({...prev,habits:[...prev.habits,newHabit(rDay())]}));},[habits.length]);
+  const removeHabit=useCallback(id=>{setSt(prev=>({...prev,habits:prev.habits.filter(h=>h.id!==id)}));},[]);
+  const renameHabit=useCallback((id,name)=>{setSt(prev=>({...prev,habits:prev.habits.map(h=>h.id===id?{...h,name}:h)}));},[]);
+
+  const active=useMemo(()=>habits.filter(h=>h.active),[habits]);
+  const doneToday=useMemo(()=>active.filter(h=>!!(h.checks[ym]||{})[td]).length,[active,ym,td]);
+  const total=active.length;
+  const allDone=total>0&&doneToday===total;
+  const insights=useMemo(()=>buildInsights(habits),[habits,ym,td]);
+  const topM=useMemo(()=>active.length>0?Math.max(0,...active.map(calcMomentum)):0,[active]);
+  const todayRef=reflections[`${ym}-${p2(td)}`];
+  const weekReport=useMemo(()=>buildWeekReport(habits,reflections),[habits,reflections]);
+  const microHabit=useMemo(()=>showMicro?habits.find(x=>x.id===showMicro):null,[showMicro,habits]);
+
+  useEffect(()=>{if(allDone&&total>0&&doneToday>prevDone.current)spawnConfetti();prevDone.current=doneToday;},[doneToday,total]);
+
+  // If-Then チェーン: ある習慣をチェックしたら連鎖習慣を視覚的に促す
+  const chainTarget=useMemo(()=>{
+    if(!allDone)return null;
+    return habits.find(h=>{
+      if(!h.chainAfter) return false;
+      const src=habits.find(x=>x.id===h.chainAfter);
+      if(!src) return false;
+      const srcChecked=!!(src.checks[ym]||{})[td];
+      const selfDone=!!(h.checks[ym]||{})[td];
+      return srcChecked && !selfDone;
+    });
+  },[habits,ym,td,allDone]);
+
+  if(onboarding)return<Onboarding onComplete={h=>{setSt(prev=>({...prev,habits:[h]}));setOnboarding(false);}}/>;
+
+  const TABS=[{key:"today",label:"Today",icon:TodayIco},{key:"momentum",label:"Momentum",icon:MomIco},{key:"weekly",label:"Weekly",icon:WeekIco},{key:"coach",label:"Coach",icon:CoachIco}];
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#09090E",overflow:"hidden"}}>
+
+      {/* ════ TODAY ════ */}
+      {screen==="today"&&(
+        <div className="page">
+          {/* ヘッダー */}
+          <div style={{padding:"54px 20px 0"}}>
+            <div style={{fontSize:11,color:"#363650",fontWeight:600,letterSpacing:1,textTransform:"uppercase"}}>{dayLbl()}</div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginTop:4}}>
+              <div style={{fontSize:31,fontWeight:900,letterSpacing:-1.5,lineHeight:1}}>{editMode?"Edit":"Today"}</div>
+              {insights.length>0&&!editMode&&(
+                <button onClick={()=>setShowInsights(true)} style={{position:"relative",background:"rgba(99,102,241,.09)",borderRadius:11,padding:"7px 11px",border:"1px solid rgba(99,102,241,.2)",display:"flex",alignItems:"center",gap:5,color:"#818cf8",fontSize:11,fontWeight:600}}>
+                  💡 {insights.length}件
+                  <div style={{position:"absolute",top:-3,right:-3,width:7,height:7,borderRadius:"50%",background:"#818cf8",animation:"pulse 1.5s infinite"}}/>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ★ If-Then チェーン促進バナー */}
+          {chainTarget&&!editMode&&(
+            <div className="chain-indicator" style={{margin:"14px 20px 0",background:"rgba(6,182,212,.06)",border:"1px solid rgba(6,182,212,.3)",borderRadius:18,padding:"14px 16px",display:"flex",alignItems:"center",gap:12}}>
+              <span style={{fontSize:22}}>🔗</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:800,color:"#06b6d4"}}>If-Then チェーン</div>
+                <div style={{fontSize:11,color:"#888",marginTop:2}}>「{chainTarget.name}」を今やるタイミングです</div>
+              </div>
+              <button onClick={()=>toggleToday(chainTarget.id)} style={{padding:"7px 12px",background:"rgba(6,182,212,.15)",border:"1px solid rgba(6,182,212,.3)",borderRadius:9,color:"#06b6d4",fontSize:11,fontWeight:700}}>記録</button>
+            </div>
+          )}
+
+          {/* 全完了バナー */}
+          {allDone&&total>0&&!editMode&&(
+            <div style={{margin:"14px 20px 0",borderRadius:18,padding:"15px 18px",background:"linear-gradient(90deg,#0D2A1A,#173A0A,#0D2A1A)",backgroundSize:"200% auto",animation:"shimmer 3s linear infinite",border:"1px solid rgba(34,197,94,.28)",display:"flex",alignItems:"center",gap:12}}>
+              <span style={{fontSize:24}}>🎉</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:14,fontWeight:800,color:"#22c55e"}}>Today Complete!</div>
+                <div style={{fontSize:10,color:"#16a34a",marginTop:2}}>週間達成率: {weekReport.weekRate}%</div>
+              </div>
+              {!todayRef&&<button onClick={()=>setReflectOpen(true)} style={{padding:"7px 12px",background:"rgba(99,102,241,.14)",border:"1px solid rgba(99,102,241,.28)",borderRadius:9,color:"#818cf8",fontSize:11,fontWeight:700}}>📝 振り返る</button>}
+            </div>
+          )}
+
+          {/* Progress & Momentum */}
+          {!allDone&&total>0&&!editMode&&(
+            <div style={{margin:"14px 20px 0",display:"flex",gap:10}}>
+              <div style={{flex:1,background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:18,padding:"13px 15px"}}>
+                <div style={{fontSize:10,color:"#363650",fontWeight:600,marginBottom:5}}>Today</div>
+                <div style={{fontSize:25,fontWeight:900,letterSpacing:-1,fontFamily:"Inter"}}>{doneToday}<span style={{fontSize:13,color:"#363650",fontWeight:500}}>/{total}</span></div>
+                <div style={{height:3,background:"#1C1C2A",borderRadius:2,marginTop:9,overflow:"hidden"}}>
+                  <div style={{height:"100%",borderRadius:2,transition:"width .5s",width:`${total>0?Math.round(doneToday/total*100):0}%`,background:"linear-gradient(90deg,#6366f1,#818cf8)"}}/>
+                </div>
+              </div>
+              <div className="glow-card" style={{flex:1,background:"#0D0D16",border:"1px solid rgba(99,102,241,.18)",borderRadius:18,padding:"13px 15px"}}>
+                <div style={{fontSize:10,color:"#6366f1",fontWeight:600,marginBottom:5}}>Top Momentum</div>
+                <div className="shimmer" style={{fontSize:25,fontWeight:900,letterSpacing:-1,fontFamily:"Inter"}}>{topM.toFixed(1)}</div>
+                <div style={{fontSize:9,color:"#363650",marginTop:7}}>上限なし・慣性スコア</div>
+              </div>
+            </div>
+          )}
+
+          {/* 振り返り表示 */}
+          {todayRef&&!editMode&&(
+            <div style={{margin:"12px 20px 0",background:"#0D0D16",border:"1px solid rgba(129,140,248,.12)",borderRadius:14,padding:"11px 14px",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:18}}>{MOODS.find(m=>m.v===todayRef.mood)?.e||"📝"}</span>
+              <div>
+                <div style={{fontSize:11,color:"#818cf8",fontWeight:700}}>今日の振り返り記録済み</div>
+                {todayRef.note&&<div style={{fontSize:10,color:"#555",marginTop:1,maxWidth:"62vw",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{todayRef.note}</div>}
+              </div>
+            </div>
+          )}
+
+          {/* 習慣リスト */}
+          <div style={{padding:"12px 20px 0",display:"flex",flexDirection:"column",gap:10}}>
+            {active.length===0&&<div style={{textAlign:"center",color:"#222235",fontSize:14,lineHeight:2.3,padding:"48px 0"}}>「＋ 習慣を追加」から<br/>最初の習慣を登録しましょう</div>}
+            {active.map(h=>{
+              const done=!!(h.checks[ym]||{})[td];
+              const skipped=!!(h.skips[ym]||{})[td];
+              const momentum=calcMomentum(h);
+              const streak=calcStreak(h);
+              if(editMode)return<EditCard key={h.id} habit={h} habits={habits} onRename={n=>renameHabit(h.id,n)} onRemove={()=>removeHabit(h.id)} onUpdate={f=>updateHabit(h.id,f)}/>;
+              return<HabitCard key={h.id} habit={h} done={done} skipped={skipped} momentum={momentum} streak={streak} shieldAvail={!h.shieldUsed[ym]} onToggle={()=>toggleToday(h.id)} onSkip={()=>setSkipTarget(h.id)} onShield={()=>useShield(h.id)} onDetail={()=>setDetail(h)} onMicro={()=>setShowMicro(h.id)}/>;
+            })}
+            {habits.length<MAX&&(
+              <button onClick={addHabit} style={{width:"100%",padding:"16px 0",background:"transparent",border:"1.5px dashed #1C1C2A",borderRadius:20,color:"#222235",fontSize:13,fontWeight:600,marginTop:2,display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"border-color .2s,color .2s"}}
+                onMouseOver={e=>{e.currentTarget.style.borderColor="#383858";e.currentTarget.style.color="#555"}} onMouseOut={e=>{e.currentTarget.style.borderColor="#1C1C2A";e.currentTarget.style.color="#222235"}}>
+                <span style={{fontSize:16}}>＋</span>習慣を追加<span style={{fontSize:10,color:"#222235",background:"#161626",borderRadius:4,padding:"1px 6px"}}>{habits.length}/{MAX}</span>
+              </button>
+            )}
+          </div>
+
+          <div style={{padding:"12px 20px 0"}}>
+            <button onClick={()=>setEditMode(e=>!e)} style={{width:"100%",padding:"12px",borderRadius:14,fontSize:13,fontWeight:700,background:editMode?"#0B2018":"#0D0D16",color:editMode?"#22c55e":"#363650",border:editMode?"1px solid rgba(34,197,94,.28)":"1px solid #1C1C2A",transition:"all .2s"}}>
+              {editMode?"✓ 完了":"✏️ 習慣を編集"}
+            </button>
+          </div>
+          <div style={{height:16}}/>
+        </div>
+      )}
+
+      {screen==="momentum"&&<MomentumScreen habits={habits} ym={ym}/>}
+      {screen==="weekly"&&<WeeklyScreen report={weekReport} habits={habits}/>}
+      {screen==="coach"&&<CoachScreen habits={habits} ym={ym} td={td} reflections={reflections}/>}
+
+      {/* ボトムナビ */}
+      <nav style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(9,9,14,.97)",backdropFilter:"blur(24px)",borderTop:"1px solid #111120",display:"flex",paddingBottom:"env(safe-area-inset-bottom)",zIndex:100}}>
+        {TABS.map(({key,label,icon:Icon})=>(
+          <button key={key} className={`nav-btn${screen===key?" active":""}`} onClick={()=>{setScreen(key);setEditMode(false);}}>
+            <Icon active={screen===key}/>{label}
+          </button>
+        ))}
+      </nav>
+
+      {detail&&<DetailSheet habit={habits.find(h=>h.id===detail.id)||detail} ym={ym} td={td} habits={habits} onClose={()=>setDetail(null)} onUpdate={f=>updateHabit(detail.id,f)}/>}
+      {skipTarget&&<SkipSheet habit={habits.find(h=>h.id===skipTarget)} onRecord={(r,n)=>recordSkip(skipTarget,r,n)} onClose={()=>setSkipTarget(null)}/>}
+      {showInsights&&<InsightSheet insights={insights} onClose={()=>setShowInsights(false)}/>}
+      {reflectOpen&&<ReflectSheet onSave={saveReflection} onClose={()=>setReflectOpen(false)} habits={active} ym={ym} td={td}/>}
+      {/* ★ Micro Habitポップアップ */}
+      {showMicro&&microHabit&&<MicroSheet habit={microHabit} onClose={()=>setShowMicro(null)} onUpdate={f=>{updateHabit(showMicro,f);setShowMicro(null);showToast("Micro Habitを設定しました 🌱");}}/>}
+
+      {toast&&<div style={{position:"fixed",bottom:96,left:"50%",transform:"translateX(-50%)",background:"#6366f1",color:"#fff",padding:"11px 22px",borderRadius:100,fontWeight:700,fontSize:12,boxShadow:"0 8px 32px rgba(0,0,0,.6)",zIndex:400,whiteSpace:"nowrap",maxWidth:"90vw",animation:"slideUp .28s cubic-bezier(.22,1,.36,1)"}}>{toast}</div>}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+   ★ オンボーディング（完全リデザイン）
+═══════════════════════════════════════════════ */
+function Onboarding({onComplete}){
+  const[step,setStep]=useState(0);
+  const[name,setName]=useState("");
+  const[why,setWhy]=useState("");
+  const[micro,setMicro]=useState("");
+  const[diff,setDiff]=useState("medium");
+  const STEPS=["習慣名","Why","最小行動","難易度"];
+  const pct=Math.round((step+1)/STEPS.length*100);
+
+  const finish=()=>{
+    const h=newHabit(1);
+    onComplete({...h,name:name.trim(),why:why.trim(),microHabit:micro.trim(),difficulty:diff});
+  };
+
+  return(
+    <div className="ob-wrap">
+      <div className="ob-progress"><div className="ob-progress-fill" style={{width:`${pct}%`}}/></div>
+      <div className="ob-screen">
+        {/* ロゴ（step0のみ） */}
+        {step===0&&(
+          <div style={{marginBottom:36,textAlign:"center"}}>
+            <div className="shimmer" style={{fontSize:38,fontWeight:900,letterSpacing:-2,fontFamily:"Inter"}}>Momentum</div>
+            <div style={{fontSize:12,color:"#363650",marginTop:6}}>1日休んでも、慣性は続く。</div>
+          </div>
+        )}
+        <div style={{fontSize:11,color:"#818cf8",fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Step {step+1} / {STEPS.length}</div>
+
+        {step===0&&(
+          <div style={{animation:"onboardIn .3s ease"}}>
+            <div style={{fontSize:22,fontWeight:800,marginBottom:8,letterSpacing:-.5}}>どんな習慣を始めますか？</div>
+            <div style={{fontSize:13,color:"#555",marginBottom:20,lineHeight:1.7}}>まず1つだけ。小さく始めることが継続の鍵です。</div>
+            <input className="field" value={name} onChange={e=>setName(e.target.value)} placeholder="例：毎朝30分英語学習" style={{fontSize:16,fontWeight:600}}/>
+          </div>
+        )}
+
+        {step===1&&(
+          <div style={{animation:"onboardIn .3s ease"}}>
+            <div style={{fontSize:22,fontWeight:800,marginBottom:8,letterSpacing:-.5}}>なぜこの習慣が大切ですか？</div>
+            <div style={{fontSize:13,color:"#555",marginBottom:8,lineHeight:1.7}}>
+              行動科学の研究では、<strong style={{color:"#818cf8"}}>「なぜ」を言語化した人は継続率が2.5倍</strong>高いとされています。
+            </div>
+            <div style={{padding:"10px 14px",background:"rgba(99,102,241,.07)",border:"1px solid rgba(99,102,241,.18)",borderRadius:12,marginBottom:16,fontSize:12,color:"#818cf8",lineHeight:1.7}}>
+              💭 「{name}」を続けると、どんな未来の自分に近づけますか？
+            </div>
+            <textarea className="field" value={why} onChange={e=>setWhy(e.target.value)} placeholder="例：グローバルに活躍したい。英語ができれば選択肢が広がる。" style={{resize:"none",height:90}}/>
+          </div>
+        )}
+
+        {step===2&&(
+          <div style={{animation:"onboardIn .3s ease"}}>
+            <div style={{fontSize:22,fontWeight:800,marginBottom:8,letterSpacing:-.5}}>やる気ゼロでもできる最小行動は？</div>
+            <div style={{fontSize:13,color:"#555",marginBottom:8,lineHeight:1.7}}>
+              <strong style={{color:"#06b6d4"}}>Micro Habit</strong>とは、最悪な日でも「これだけはやる」最小単位の行動です。<br/>習慣を「ゼロか完璧か」から解放します。
+            </div>
+            <div style={{padding:"10px 14px",background:"rgba(6,182,212,.06)",border:"1px solid rgba(6,182,212,.2)",borderRadius:12,marginBottom:16,fontSize:12,color:"#06b6d4",lineHeight:1.7}}>
+              🌱 例：「30分英語」のMicro Habit→「単語帳を1ページ開くだけ」
+            </div>
+            <input className="field" value={micro} onChange={e=>setMicro(e.target.value)} placeholder="例：単語帳を1ページ開くだけ"/>
+            <div style={{fontSize:11,color:"#363650",marginTop:8}}>※ 空欄でもOK。後から設定できます。</div>
+          </div>
+        )}
+
+        {step===3&&(
+          <div style={{animation:"onboardIn .3s ease"}}>
+            <div style={{fontSize:22,fontWeight:800,marginBottom:8,letterSpacing:-.5}}>難易度を選んでください</div>
+            <div style={{fontSize:13,color:"#555",marginBottom:16,lineHeight:1.7}}>難しい習慣ほどMomentumの倍率が高くなります。</div>
+            {DIFFS.map(d=>(
+              <button key={d.id} onClick={()=>setDiff(d.id)} style={{width:"100%",padding:"14px 16px",borderRadius:14,marginBottom:10,background:diff===d.id?"#111128":"#0D0D16",border:`1px solid ${diff===d.id?d.color+"55":"#1C1C2A"}`,textAlign:"left",transition:"all .15s",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <span style={{fontSize:14,fontWeight:700,color:diff===d.id?d.color:"#EFEFFA"}}>{d.label}</span>
+                  <span style={{fontSize:11,color:"#555",marginLeft:10}}>{d.desc}</span>
+                </div>
+                <span style={{fontSize:16,fontWeight:900,color:d.color}}>×{d.mult}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:10,marginTop:24}}>
+          {step>0&&<button onClick={()=>setStep(s=>s-1)} style={{flex:1,padding:"14px",borderRadius:14,background:"#161626",color:"#555",fontSize:14,fontWeight:600,border:"1px solid #1C1C2A"}}>← 戻る</button>}
+          <button
+            onClick={step<STEPS.length-1?()=>setStep(s=>s+1):finish}
+            disabled={step===0&&!name.trim()}
+            style={{flex:2,padding:"14px",borderRadius:14,fontSize:14,fontWeight:800,transition:"all .2s",
+              background:step===0&&!name.trim()?"#161626":"linear-gradient(135deg,#6366f1,#818cf8)",
+              color:step===0&&!name.trim()?"#363650":"#fff",
+              boxShadow:step===0&&!name.trim()?"none":"0 4px 20px rgba(99,102,241,.32)"}}>
+            {step<STEPS.length-1?"次へ →":"習慣を始める 🚀"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════
+   習慣カード（クリーンデザイン）
+═══════════════════════════════════ */
+function HabitCard({habit,done,skipped,momentum,streak,shieldAvail,onToggle,onSkip,onShield,onDetail,onMicro}){
+  const cardRef=useRef(null);
+  const diff=DIFFS.find(d=>d.id===habit.difficulty)||DIFFS[1];
+  const predict=predictMomentum(habit);
+  const pct=Math.min(momentum/predict.next*100,100);
+
+  const handleTap=e=>{
+    if(!done){
+      const r=cardRef.current?.getBoundingClientRect();
+      if(r){const sz=Math.max(r.width,r.height)*2.2;const rp=document.createElement("div");rp.className="ripple";rp.style.cssText=`width:${sz}px;height:${sz}px;left:${(e.clientX||r.left+r.width/2)-r.left-sz/2}px;top:${(e.clientY||r.top+r.height/2)-r.top-sz/2}px;background:radial-gradient(circle,rgba(99,102,241,.48) 0%,transparent 70%);`;cardRef.current.appendChild(rp);setTimeout(()=>rp.remove(),700);}
+    }
+    onToggle();
+  };
+
+  return(
+    <div ref={cardRef} className="hcard" style={{background:done?"#090F18":skipped?"#0E0A06":"#0D0D16",border:done?"1px solid rgba(99,102,241,.28)":skipped?"1px solid rgba(245,158,11,.16)":"1px solid #1C1C2A"}}>
+      <div style={{display:"flex",alignItems:"stretch"}}>
+        {/* チェックエリア */}
+        <button onClick={handleTap} style={{flex:1,padding:"17px 14px",textAlign:"left",display:"flex",alignItems:"center",gap:14}}>
+          {/* Momentum リング */}
+          <div style={{position:"relative",flexShrink:0,width:40,height:40}}>
+            <svg width="40" height="40" viewBox="0 0 40 40" style={{transform:"rotate(-90deg)"}}>
+              <circle cx="20" cy="20" r="16" fill="none" stroke="#1C1C2A" strokeWidth="3.5"/>
+              <circle cx="20" cy="20" r="16" fill="none" stroke={done?"#6366f1":skipped?"#f59e0b":"#222235"}
+                strokeWidth="3.5" strokeDasharray={`${pct*1.005} 100.5`} strokeLinecap="round"
+                style={{transition:"stroke-dasharray .8s cubic-bezier(.22,1,.36,1)"}}/>
+            </svg>
+            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {done?<svg width="13" height="10" viewBox="0 0 13 10" fill="none"><path d="M1 5L5 9L12 1" stroke="#818cf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              :skipped?<span style={{fontSize:11}}>⏭</span>
+              :<div style={{width:5,height:5,borderRadius:"50%",background:"#222235"}}/>}
+            </div>
+          </div>
+          {/* テキスト */}
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+              <span style={{fontSize:15,fontWeight:600,letterSpacing:-.2,color:done?"#818cf8":skipped?"#b45309":"#EFEFFA",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"52vw"}}>{habit.name}</span>
+              <span className="diff-tag" style={{background:`${diff.color}15`,color:diff.color,border:`1px solid ${diff.color}35`,flexShrink:0}}>×{diff.mult}</span>
+            </div>
+            {/* Why（未達成時のみ表示 — モチベーション維持） */}
+            {habit.why&&!done&&!skipped&&(
+              <div style={{fontSize:10,color:"#3A3A52",marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"58vw"}}>
+                💭 {habit.why}
+              </div>
+            )}
+            {/* Micro Habit（未達成時） */}
+            {habit.microHabit&&!done&&!skipped&&(
+              <div style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 7px",borderRadius:5,background:"rgba(6,182,212,.08)",border:"1px solid rgba(6,182,212,.22)",color:"#06b6d4",fontSize:9,fontWeight:700,marginBottom:2}}>
+                🌱 最小: {habit.microHabit}
+              </div>
+            )}
+            <div style={{fontSize:10,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <span style={{color:"#6366f1",fontWeight:700,fontFamily:"Inter"}}>⚡{momentum.toFixed(1)}</span>
+              {streak>0&&<span style={{color:"#363650"}}>🔥{streak}日</span>}
+              {!done&&!skipped&&predict.days<=4&&<span style={{color:"#f59e0b",fontWeight:600}}>あと{predict.days}日→⚡{predict.next}</span>}
+              {skipped&&<span style={{color:"#f59e0b",fontSize:9}}>Skip済</span>}
+              {!habit.microHabit&&<button onClick={e=>{e.stopPropagation();onMicro();}} style={{fontSize:9,color:"#363650",padding:"1px 5px",background:"#161626",borderRadius:4,border:"1px solid #1C1C2A"}}>+ 最小行動</button>}
+            </div>
+          </div>
+        </button>
+        {/* 右側 */}
+        <div style={{display:"flex",alignItems:"center",paddingRight:8,gap:2,flexShrink:0}}>
+          {!done&&!skipped&&<button onClick={e=>{e.stopPropagation();onSkip();}} style={{width:32,height:32,borderRadius:9,background:"rgba(245,158,11,.07)",color:"#7A5A00",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}} onMouseOver={e=>e.currentTarget.style.background="rgba(245,158,11,.17)"} onMouseOut={e=>e.currentTarget.style.background="rgba(245,158,11,.07)"}>⏭</button>}
+          <button onClick={e=>{e.stopPropagation();onDetail();}} style={{width:32,height:32,borderRadius:9,color:"#282838",fontSize:17,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+        </div>
+      </div>
+      {/* Momentumバー */}
+      {momentum>0&&(
+        <div style={{padding:"0 14px 11px"}}>
+          <div style={{height:3,background:"#1A1A2A",borderRadius:2,overflow:"hidden"}}>
+            <div style={{height:"100%",borderRadius:2,width:`${pct}%`,background:"linear-gradient(90deg,#6366f1,#818cf8)",transition:"width .8s cubic-bezier(.22,1,.36,1)"}}/>
+          </div>
+        </div>
+      )}
+      {/* Shield行 */}
+      {streak>=3&&shieldAvail&&!done&&!skipped&&(
+        <div style={{borderTop:"1px solid #181828",padding:"8px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span style={{fontSize:10,color:"#363650"}}>🛡 Streak Shield 今月1回使用可</span>
+          <button onClick={e=>{e.stopPropagation();onShield();}} style={{padding:"3px 9px",borderRadius:6,background:"rgba(99,102,241,.1)",color:"#818cf8",fontSize:10,fontWeight:700,border:"1px solid rgba(99,102,241,.18)"}}>使用</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ★ Micro Habit 設定シート */
+function MicroSheet({habit,onClose,onUpdate}){
+  const[val,setVal]=useState(habit.microHabit||"");
+  return(
+    <div className="sheet-wrap"><div className="sheet-bg" onClick={onClose}/>
+    <div className="sheet-panel"><div className="sheet-handle"/>
+      <div style={{fontSize:18,fontWeight:800,marginBottom:6}}>🌱 Micro Habit設定</div>
+      <div style={{fontSize:12,color:"#555",marginBottom:8,lineHeight:1.7}}>「{habit.name}」のMicro Habitとは、<strong style={{color:"#06b6d4"}}>やる気ゼロの日でもできる最小の行動</strong>です。<br/>これを設定するだけで「ゼロか完璧か」思考から解放されます。</div>
+      <div style={{padding:"10px 14px",background:"rgba(6,182,212,.06)",border:"1px solid rgba(6,182,212,.2)",borderRadius:12,marginBottom:14,fontSize:12,color:"#06b6d4"}}>
+        📐 ルール：「30秒でできること」レベルまで小さくする
+      </div>
+      <input className="field" value={val} onChange={e=>setVal(e.target.value)} placeholder="例：単語帳を1ページ開くだけ"/>
+      <div style={{display:"flex",gap:10,marginTop:14}}>
+        <button onClick={()=>val.trim()&&onUpdate({microHabit:val.trim()})} disabled={!val.trim()} style={{flex:1,padding:"14px",borderRadius:14,background:val.trim()?"rgba(6,182,212,.15)":"#161626",color:val.trim()?"#06b6d4":"#363650",fontSize:14,fontWeight:700,border:`1px solid ${val.trim()?"rgba(6,182,212,.3)":"#1C1C2A"}`}}>保存する</button>
+        <button onClick={onClose} style={{flex:1,padding:"14px",borderRadius:14,background:"#161626",color:"#555",fontSize:14,fontWeight:600,border:"1px solid #1C1C2A"}}>閉じる</button>
+      </div>
+    </div></div>
+  );
+}
+
+/* Skip シート */
+function SkipSheet({habit,onRecord,onClose}){
+  const[sel,setSel]=useState(null);const[note,setNote]=useState("");
+  return(
+    <div className="sheet-wrap"><div className="sheet-bg" onClick={onClose}/>
+    <div className="sheet-panel"><div className="sheet-handle"/>
+      <div style={{fontSize:17,fontWeight:800,marginBottom:4}}>今日はSkipを記録</div>
+      <div style={{fontSize:12,color:"#555",marginBottom:16}}>「{habit?.name}」。理由の蓄積があなたのパターンを明らかにします。</div>
+      {SKIP_REASONS.map(r=>(
+        <button key={r.id} className={`skip-opt${sel===r.id?" sel":""}`} onClick={()=>setSel(r.id)} style={{background:sel===r.id?"#11112A":"#0D0D16",borderColor:sel===r.id?"rgba(99,102,241,.45)":"#1C1C2A"}}>
+          <span style={{fontSize:15,marginRight:10}}>{r.emoji}</span><span style={{fontSize:13,fontWeight:500}}>{r.label}</span>
+        </button>
+      ))}
+      <textarea placeholder="メモ（任意）" value={note} onChange={e=>setNote(e.target.value)} style={{width:"100%",marginTop:10,padding:"11px 13px",background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:12,color:"#EFEFFA",fontSize:13,resize:"none",height:60}}/>
+      <div style={{display:"flex",gap:10,marginTop:14}}>
+        <button onClick={()=>sel&&onRecord(sel,note)} disabled={!sel} style={{flex:1,padding:"14px",borderRadius:14,background:sel?"#6366f1":"#161626",color:sel?"#fff":"#363650",fontSize:14,fontWeight:700,opacity:sel?1:.65}}>記録する</button>
+        <button onClick={onClose} style={{flex:1,padding:"14px",borderRadius:14,background:"#161626",color:"#555",fontSize:14,fontWeight:600,border:"1px solid #1C1C2A"}}>キャンセル</button>
+      </div>
+    </div></div>
+  );
+}
+
+/* インサイトシート */
+function InsightSheet({insights,onClose}){
+  const TC={celebrate:"#22c55e",milestone:"#f59e0b",encourage:"#6366f1",warning:"#ef4444",concern:"#818cf8",pattern:"#06b6d4",predict:"#f59e0b",micro:"#06b6d4",chain:"#22c55e"};
+  return(
+    <div className="sheet-wrap"><div className="sheet-bg" onClick={onClose}/>
+    <div className="sheet-panel"><div className="sheet-handle"/>
+      <div style={{fontSize:17,fontWeight:800,marginBottom:4}}>💡 AIコーチインサイト</div>
+      <div style={{fontSize:11,color:"#555",marginBottom:16}}>あなたの行動データから生成したパーソナライズフィードバック</div>
+      {insights.map((ins,i)=>(
+        <div key={i} style={{background:"#0D0D16",border:`1px solid ${TC[ins.type]||"#818cf8"}1E`,borderRadius:15,padding:"13px",marginBottom:9}}>
+          <div style={{display:"flex",gap:10}}>
+            <span style={{fontSize:18,flexShrink:0}}>{ins.icon}</span>
+            <div><div style={{fontSize:9,color:TC[ins.type]||"#818cf8",fontWeight:700,letterSpacing:.5,marginBottom:2}}>{ins.n!=="all"?ins.n:"ALL HABITS"}</div><div style={{fontSize:12,color:"#C8C8E0",lineHeight:1.7}}>{ins.msg}</div></div>
+          </div>
+        </div>
+      ))}
+      <button onClick={onClose} style={{width:"100%",marginTop:4,padding:"14px",background:"#161626",color:"#555",borderRadius:14,fontSize:14,fontWeight:600,border:"1px solid #1C1C2A"}}>閉じる</button>
+    </div></div>
+  );
+}
+
+/* ★ デイリーリフレクション */
+function ReflectSheet({onSave,onClose,habits,ym,td}){
+  const[mood,setMood]=useState(null);const[note,setNote]=useState("");
+  const mc=habits.map(h=>({name:h.name,done:!!(h.checks[ym]||{})[td]}));
+  const doneCount=mc.filter(h=>h.done).length;
+  return(
+    <div className="sheet-wrap"><div className="sheet-bg" onClick={onClose}/>
+    <div className="sheet-panel"><div className="sheet-handle"/>
+      <div style={{fontSize:17,fontWeight:800,marginBottom:4}}>📝 今日の振り返り</div>
+      <div style={{fontSize:12,color:"#555",marginBottom:18}}>習慣達成: {doneCount}/{mc.length}　振り返りの記録がMomentumを強化します</div>
+      <div style={{fontSize:11,color:"#818cf8",fontWeight:700,marginBottom:10}}>今日の気分は？</div>
+      <div style={{display:"flex",gap:8,marginBottom:4}}>
+        {MOODS.map(m=>(
+          <button key={m.v} className={`mood-btn${mood===m.v?" active":""}`} onClick={()=>setMood(m.v)} style={{background:mood===m.v?"rgba(99,102,241,.14)":"#0D0D16",borderColor:mood===m.v?"#818cf8":"#1C1C2A"}}>{m.e}</button>
+        ))}
+      </div>
+      {mood&&<div style={{fontSize:10,color:"#818cf8",textAlign:"center",marginBottom:14}}>{MOODS.find(m=>m.v===mood)?.l}</div>}
+      <div style={{fontSize:11,color:"#818cf8",fontWeight:700,marginBottom:8}}>一言メモ（任意）</div>
+      <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="例：今日はきつかったが最小限はやれた" style={{width:"100%",padding:"12px 14px",background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:12,color:"#EFEFFA",fontSize:13,resize:"none",height:72}}/>
+      {mc.filter(h=>!h.done).length>0&&(
+        <div style={{marginTop:12,padding:"10px 13px",background:"rgba(245,158,11,.05)",border:"1px solid rgba(245,158,11,.12)",borderRadius:11}}>
+          <div style={{fontSize:10,color:"#f59e0b",fontWeight:700,marginBottom:6}}>未達成</div>
+          {mc.filter(h=>!h.done).map((h,i)=><div key={i} style={{fontSize:11,color:"#888",padding:"2px 0"}}>・{h.name}</div>)}
+        </div>
+      )}
+      <div style={{display:"flex",gap:10,marginTop:14}}>
+        <button onClick={()=>mood&&onSave(mood,note)} disabled={!mood} style={{flex:1,padding:"14px",borderRadius:14,background:mood?"linear-gradient(135deg,#6366f1,#818cf8)":"#161626",color:mood?"#fff":"#363650",fontSize:14,fontWeight:800,opacity:mood?1:.7}}>記録する</button>
+        <button onClick={onClose} style={{flex:1,padding:"14px",borderRadius:14,background:"#161626",color:"#555",fontSize:14,fontWeight:600,border:"1px solid #1C1C2A"}}>後で</button>
+      </div>
+    </div></div>
+  );
+}
+
+/* ═══════════════════════════════════
+   Momentum 画面
+═══════════════════════════════════ */
+function MomentumScreen({habits,ym}){
+  const active=habits.filter(h=>h.active);
+  const ranked=useMemo(()=>active.map(h=>({...h,m:calcMomentum(h),s:calcStreak(h),p:predictMomentum(h)})).sort((a,b)=>b.m-a.m),[active]);
+  const maxM=ranked.length>0?ranked[0].m:1;
+  return(
+    <div className="page">
+      <div style={{padding:"54px 20px 0"}}>
+        <div style={{fontSize:11,color:"#363650",fontWeight:600,letterSpacing:1,textTransform:"uppercase"}}>慣性スコア</div>
+        <div style={{fontSize:31,fontWeight:900,letterSpacing:-1.5,marginTop:3}}>Momentum</div>
+        <div style={{fontSize:12,color:"#363650",marginTop:6,lineHeight:1.7}}>1日休んでも慣性は残ります。Streakより正直な継続力の指標。</div>
+      </div>
+      <div style={{margin:"16px 20px 0",background:"#0D0D16",border:"1px solid rgba(99,102,241,.16)",borderRadius:18,padding:"14px"}}>
+        <div style={{fontSize:10,fontWeight:700,color:"#6366f1",marginBottom:10,letterSpacing:.5,textTransform:"uppercase"}}>スコアの仕組み</div>
+        {[{i:"✅",l:"チェックした日",v:"+倍率 × 慣性"},{i:"⏭",l:"Skip記録あり",v:"慣性 × 0.85"},{i:"❌",l:"無記録スキップ",v:"慣性 × 0.65"},{i:"🛡",l:"Shield使用",v:"慣性を保護"},{i:"💪",l:"困難（×1.5）",v:"Momentum倍増"}].map((r,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:i<4?"1px solid #161626":"none"}}>
+            <div style={{fontSize:12,color:"#C8C8E0"}}><span style={{marginRight:8}}>{r.i}</span>{r.l}</div>
+            <div style={{fontSize:10,color:"#6366f1",fontWeight:700}}>{r.v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{padding:"14px 20px 0",display:"flex",flexDirection:"column",gap:10}}>
+        {ranked.length===0&&<div style={{color:"#222235",fontSize:13,textAlign:"center",padding:"40px 0"}}>習慣を追加するとここにランキングが表示されます</div>}
+        {ranked.map((h,i)=>{
+          const pct=maxM>0?h.m/maxM*100:0;
+          const diff=DIFFS.find(d=>d.id===h.difficulty)||DIFFS[1];
+          const s=calcStats(h,rYM());
+          return(
+            <div key={h.id} style={{background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:18,padding:"15px 18px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:30,height:30,borderRadius:9,background:i===0?"rgba(99,102,241,.18)":i===1?"rgba(245,158,11,.13)":"rgba(34,197,94,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:900,color:i===0?"#818cf8":i===1?"#f59e0b":"#22c55e",fontFamily:"Inter"}}>
+                    {i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}
+                  </div>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700}}>{h.name}</div>
+                    <div style={{display:"flex",gap:6,marginTop:2}}>
+                      <span className="diff-tag" style={{background:`${diff.color}15`,color:diff.color,border:`1px solid ${diff.color}30`}}>{diff.label} ×{diff.mult}</span>
+                      <span style={{fontSize:9,color:"#363650"}}>Streak {h.s}日</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="shimmer" style={{fontSize:24,fontWeight:900,fontFamily:"Inter",letterSpacing:-1}}>{h.m.toFixed(1)}</div>
+              </div>
+              <div style={{height:5,background:"#1A1A2A",borderRadius:3,overflow:"hidden",marginBottom:8}}>
+                <div style={{height:"100%",borderRadius:3,width:`${pct}%`,background:"linear-gradient(90deg,#6366f1,#818cf8)",transition:"width .8s"}}/>
+              </div>
+              <div style={{fontSize:10,color:"#363650",display:"flex",gap:12}}>
+                <span>今月 <strong style={{color:"#EFEFFA"}}>{s.rate}%</strong></span>
+                <span>あと<strong style={{color:"#818cf8"}}>{h.p.days}日</strong>→⚡<strong style={{color:"#818cf8"}}>{h.p.next}</strong></span>
+                {h.microHabit&&<span style={{color:"#06b6d4"}}>🌱 {h.microHabit}</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════
+   ★ 週次レポート画面（新機能）
+═══════════════════════════════════ */
+function WeeklyScreen({report,habits}){
+  const{dailyDone,habitWeek,weekRate,moodAvg,bestDay}=report;
+  const active=habits.filter(h=>h.active);
+  const maxDone=Math.max(...dailyDone.map(d=>d.done),1);
+
+  return(
+    <div className="page">
+      <div style={{padding:"54px 20px 0"}}>
+        <div style={{fontSize:11,color:"#363650",fontWeight:600,letterSpacing:1,textTransform:"uppercase"}}>今週のまとめ</div>
+        <div style={{fontSize:31,fontWeight:900,letterSpacing:-1.5,marginTop:3}}>Weekly</div>
+      </div>
+
+      {/* ★ 週間ヒートマップ */}
+      <div style={{margin:"16px 20px 0",background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:18,padding:"16px 18px"}}>
+        <div style={{fontSize:11,color:"#6366f1",fontWeight:700,letterSpacing:.5,textTransform:"uppercase",marginBottom:12}}>今週の達成マップ</div>
+        <div style={{display:"flex",gap:6,marginBottom:8}}>
+          {dailyDone.map((d,i)=>{
+            const pct=d.total>0?d.done/d.total:0;
+            const isToday=d.date===rYM()+"-"+p2(rDay());
+            const color=pct>=1?"#6366f1":pct>=.6?"#4f46e5":pct>=.3?"#3730a3":"#1C1C2A";
+            return(
+              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <div style={{width:"100%",aspectRatio:"1",borderRadius:8,background:color,border:isToday?"1px solid rgba(129,140,248,.6)":"1px solid transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:pct>0?"#fff":"#363650",transition:"all .4s"}}>
+                  {d.total>0?d.done:""}
+                </div>
+                <div style={{fontSize:9,color:isToday?"#818cf8":"#363650",fontWeight:isToday?700:500}}>{d.dow}</div>
+              </div>
+            );
+          })}
+        </div>
+        {/* 気分グラフ */}
+        {dailyDone.some(d=>d.mood)&&(
+          <div style={{height:28,display:"flex",gap:6,alignItems:"flex-end",marginTop:6}}>
+            {dailyDone.map((d,i)=>{
+              if(!d.mood)return<div key={i} style={{flex:1}}/>;
+              const h=d.mood/5*24;const c=d.mood>=4?"#22c55e":d.mood>=3?"#818cf8":d.mood>=2?"#f59e0b":"#ef4444";
+              return<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center"}}><div style={{width:"100%",height:`${h}px`,background:c,borderRadius:3,opacity:.8}}/></div>;
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* KPI */}
+      <div style={{margin:"12px 20px 0",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {[
+          {l:"週間達成率",v:`${weekRate}%`,c:weekRate>=80?"#22c55e":weekRate>=50?"#818cf8":"#555"},
+          {l:"最多達成日",v:bestDay?.dow||"—",c:"#f59e0b"},
+          {l:"Avg気分",v:moodAvg?`${moodAvg}/5`:"未記録",c:"#818cf8"},
+          {l:"登録習慣",v:`${active.length}個`,c:"#06b6d4"},
+        ].map((k,i)=>(
+          <div key={i} style={{background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:16,padding:"14px"}}>
+            <div style={{fontSize:22,fontWeight:900,color:k.c,fontFamily:"Inter",letterSpacing:-1,lineHeight:1}}>{k.v}</div>
+            <div style={{fontSize:10,color:"#363650",marginTop:5,fontWeight:600}}>{k.l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 習慣別週間スコア */}
+      <div style={{padding:"14px 20px 0",display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#EFEFFA",marginBottom:4}}>習慣別 今週の達成率</div>
+        {habitWeek.map((h,i)=>{
+          const c=h.pct>=80?"#22c55e":h.pct>=50?"#818cf8":"#555";
+          return(
+            <div key={i} style={{background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:14,padding:"13px 16px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{h.name}</div>
+                <div style={{fontSize:18,fontWeight:900,color:c,fontFamily:"Inter",marginLeft:12}}>{h.pct}%</div>
+              </div>
+              {/* 曜日別ヒートマップ */}
+              <div style={{display:"flex",gap:4}}>
+                {thisWeekDays().map((dateStr,di)=>{
+                  const[yy,mm,dd]=dateStr.split("-");
+                  const dayYm=`${yy}-${mm}`;
+                  const habit=habits.find(x=>x.name===h.name);
+                  const done=habit?!!(habit.checks[dayYm]||{})[Number(dd)]:false;
+                  const todayStr=rYM()+"-"+p2(rDay());
+                  const isToday=dateStr===todayStr;
+                  return(
+                    <div key={di} style={{flex:1,height:20,borderRadius:4,background:done?"#6366f1":"#161626",border:isToday?"1px solid rgba(129,140,248,.35)":"1px solid transparent",transition:"background .3s"}}/>
+                  );
+                })}
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+                {["月","火","水","木","金","土","日"].map(d=><div key={d} style={{flex:1,textAlign:"center",fontSize:8,color:"#363650"}}>{d}</div>)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{height:16}}/>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════
+   Coach 画面
+═══════════════════════════════════ */
+function CoachScreen({habits,ym,td,reflections}){
+  const active=habits.filter(h=>h.active);
+  const insights=useMemo(()=>buildInsights(habits),[habits,ym,td]);
+  const TC={celebrate:"#22c55e",milestone:"#f59e0b",encourage:"#6366f1",warning:"#ef4444",concern:"#818cf8",pattern:"#06b6d4",predict:"#f59e0b",micro:"#06b6d4",chain:"#22c55e"};
+  const recentMoods=useMemo(()=>{const vals=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const k=`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;if(reflections[k])vals.push({day:DOW[d.getDay()],mood:reflections[k].mood,note:reflections[k].note});}return vals;},[reflections]);
+  return(
+    <div className="page">
+      <div style={{padding:"54px 20px 0"}}>
+        <div style={{fontSize:11,color:"#363650",fontWeight:600,letterSpacing:1,textTransform:"uppercase"}}>行動分析</div>
+        <div style={{fontSize:31,fontWeight:900,letterSpacing:-1.5,marginTop:3}}>Coach</div>
+      </div>
+      {/* インサイト */}
+      <div style={{padding:"16px 20px 0"}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#EFEFFA",marginBottom:10}}>💡 パーソナルインサイト</div>
+        {insights.length===0?<div style={{background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:14,padding:"22px",textAlign:"center",color:"#363650",fontSize:12}}>データが蓄積するとここにインサイトが表示されます</div>
+        :insights.map((ins,i)=>(
+          <div key={i} style={{background:"#0D0D16",border:`1px solid ${TC[ins.type]||"#818cf8"}1A`,borderRadius:14,padding:"12px 14px",marginBottom:8}}>
+            <div style={{display:"flex",gap:10}}>
+              <span style={{fontSize:18,flexShrink:0}}>{ins.icon}</span>
+              <div><div style={{fontSize:9,color:TC[ins.type]||"#818cf8",fontWeight:700,letterSpacing:.5,marginBottom:2}}>{ins.n!=="all"?ins.n:"ALL"}</div><div style={{fontSize:12,color:"#C8C8E0",lineHeight:1.7}}>{ins.msg}</div></div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* 気分トレンド */}
+      {recentMoods.length>0&&(
+        <div style={{padding:"16px 20px 0"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#EFEFFA",marginBottom:10}}>😊 気分トレンド（直近7日）</div>
+          <div style={{background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:14,padding:"14px"}}>
+            <div style={{display:"flex",gap:6,alignItems:"flex-end",height:52}}>
+              {recentMoods.map((r,i)=>{const h=r.mood/5*44;const c=r.mood>=4?"#22c55e":r.mood>=3?"#818cf8":r.mood>=2?"#f59e0b":"#ef4444";return(
+                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                  <div style={{width:"100%",height:`${h}px`,background:c,borderRadius:4,opacity:.8,transition:"height .5s"}}/>
+                  <div style={{fontSize:9,color:"#363650"}}>{r.day}</div>
+                </div>
+              );})}
+            </div>
+            <div style={{marginTop:8,fontSize:10,color:"#555",textAlign:"center"}}>
+              平均気分 {(recentMoods.reduce((s,r)=>s+r.mood,0)/recentMoods.length).toFixed(1)} / 5.0
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Skip分析 */}
+      <div style={{padding:"16px 20px 0"}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#EFEFFA",marginBottom:10}}>📊 Skip分析</div>
+        {active.map(h=>{
+          const{dow,worstDow,topR,total}=analyzeSkips(h);if(total===0)return null;
+          const r=SKIP_REASONS.find(x=>x.id===topR?.[0]);
+          const maxCnt=Math.max(...dow,1);
+          return(
+            <div key={h.id} style={{background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:14,padding:"13px",marginBottom:8}}>
+              <div style={{fontSize:12,fontWeight:700,marginBottom:10}}>{h.name}</div>
+              <div style={{display:"flex",gap:4,marginBottom:8}}>
+                {DOW.map((label,i)=>{const cnt=dow[i];const iw=i===worstDow&&cnt>0;return(
+                  <div key={i} style={{flex:1,textAlign:"center"}}>
+                    <div style={{height:30,borderRadius:5,background:iw?"rgba(239,68,68,.16)":"rgba(255,255,255,.03)",border:iw?"1px solid rgba(239,68,68,.32)":"1px solid #1A1A28",position:"relative",overflow:"hidden"}}>
+                      {cnt>0&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:`${cnt/maxCnt*100}%`,background:iw?"rgba(239,68,68,.45)":"rgba(99,102,241,.3)"}}/>}
+                      <span style={{position:"relative",fontSize:9,fontWeight:700,color:iw?"#ef4444":"#363650",lineHeight:"30px"}}>{cnt||""}</span>
+                    </div>
+                    <div style={{fontSize:8,color:"#222235",marginTop:2}}>{label}</div>
+                  </div>
+                );})}
+              </div>
+              {r&&<div style={{padding:"6px 10px",background:"#111128",borderRadius:8,fontSize:10,color:"#818cf8"}}>{r.emoji} {r.label}が最多（{topR[1]}回）</div>}
+            </div>
+          );
+        })}
+        {active.every(h=>analyzeSkips(h).total===0)&&<div style={{background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:14,padding:"18px",textAlign:"center",color:"#363650",fontSize:12}}>Skipを記録すると分析が表示されます</div>}
+      </div>
+      {/* 習慣相関 */}
+      {active.length>=2&&(
+        <div style={{padding:"16px 20px 0"}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#EFEFFA",marginBottom:4}}>🔗 習慣の相関</div>
+          <div style={{fontSize:10,color:"#555",marginBottom:10}}>一緒に達成しやすい習慣の組み合わせ</div>
+          {active.map((h1,i)=>active.slice(i+1).map(h2=>{const cor=calcCorr(h1,h2);if(cor===null)return null;return(
+            <div key={`${h1.id}-${h2.id}`} style={{background:"#0D0D16",border:"1px solid #1C1C2A",borderRadius:12,padding:"11px 14px",marginBottom:7,display:"flex",alignItems:"center",gap:10}}>
+              <div style={{flex:1,fontSize:11,color:"#C8C8E0"}}>{h1.name} × {h2.name}</div>
+              <div style={{fontSize:15,fontWeight:900,fontFamily:"Inter",color:cor>=70?"#22c55e":cor>=40?"#f59e0b":"#ef4444"}}>{cor}%</div>
+            </div>
+          );}))} 
+        </div>
+      )}
+      <div style={{height:16}}/>
+    </div>
+  );
+}
+
+/* 詳細シート */
+function DetailSheet({habit,ym,td,habits,onClose,onUpdate}){
+  const[editWhy,setEditWhy]=useState(false);const[whyText,setWhyText]=useState(habit.why||"");
+  const[editEnv,setEditEnv]=useState(false);const[envText,setEnvText]=useState(habit.envDesign||"");
+  const m=calcMomentum(habit),streak=calcStreak(habit),s=calcStats(habit,ym),p=predictMomentum(habit);
+  const diff=DIFFS.find(d=>d.id===habit.difficulty)||DIFFS[1];
+  const{worstDow,topR,total:skipTotal}=analyzeSkips(habit);
+  const topSkipR=SKIP_REASONS.find(x=>x.id===topR?.[0]);
+  const[yr,mo]=ym.split("-").map(Number);const fd=new Date(yr,mo-1,1).getDay();const d=dim(ym);
+  const mc=habit.checks[ym]||{},sk=habit.skips[ym]||{};
+  const cells=[];for(let i=0;i<fd;i++)cells.push(null);for(let i=1;i<=d;i++)cells.push(i);
+  const chainFrom=habits.find(h=>h.id===habit.chainAfter);
+  const chainTo=habits.filter(h=>h.chainAfter===habit.id);
+
+  return(
+    <div className="sheet-wrap"><div className="sheet-bg" onClick={onClose}/>
+    <div className="sheet-panel"><div className="sheet-handle"/>
+      <div style={{fontSize:21,fontWeight:900,marginBottom:18,letterSpacing:-.7}}>{habit.name}</div>
+      {/* KPI */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:18}}>
+        {[{l:"Momentum",v:m.toFixed(1),c:"#818cf8",i:"⚡"},{l:"Streak",v:`${streak}日`,c:streak>=7?"#f59e0b":"#555",i:"🔥"},{l:"今月達成率",v:`${s.rate}%`,c:s.rate>=80?"#22c55e":s.rate>=50?"#f59e0b":"#555",i:"📊"}].map((k,i)=>(
+          <div key={i} style={{background:"#09090E",borderRadius:13,padding:"12px 9px",textAlign:"center",border:"1px solid #1C1C2A"}}>
+            <div style={{fontSize:8,color:k.c,fontWeight:700,marginBottom:3,letterSpacing:.5}}>{k.i} {k.l}</div>
+            <div style={{fontSize:18,fontWeight:900,color:k.c,fontFamily:"Inter",letterSpacing:-.5}}>{k.v}</div>
+          </div>
+        ))}
+      </div>
+      {/* 予測 */}
+      <div style={{marginBottom:16,padding:"10px 13px",background:"#0D0D16",border:"1px solid rgba(99,102,241,.14)",borderRadius:12}}>
+        <div style={{fontSize:10,color:"#6366f1",fontWeight:700,marginBottom:5}}>⚡ Momentum予測</div>
+        <div style={{fontSize:12,color:"#C8C8E0"}}>あと<strong style={{color:"#818cf8"}}>{p.days}日</strong>続けると⚡<strong style={{color:"#818cf8"}}>{p.next}</strong>に到達</div>
+        <div style={{height:3,background:"#1A1A2A",borderRadius:2,overflow:"hidden",marginTop:8}}>
+          <div style={{height:"100%",borderRadius:2,width:`${Math.min(m/p.next*100,100)}%`,background:"linear-gradient(90deg,#6366f1,#818cf8)",transition:"width .8s"}}/>
+        </div>
+      </div>
+      {/* ★ If-Then チェーン設定 */}
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:10,color:"#06b6d4",fontWeight:700,marginBottom:8,letterSpacing:.5,textTransform:"uppercase"}}>🔗 If-Then チェーン</div>
+        <div style={{fontSize:12,color:"#555",marginBottom:8}}>別の習慣の後にこれを行うよう紐付けることで達成率が上がります。</div>
+        <select className="field" value={habit.chainAfter||""} onChange={e=>onUpdate({chainAfter:e.target.value})} style={{fontSize:13,color:"#EFEFFA",background:"#0D0D16"}}>
+          <option value="">紐付けなし</option>
+          {habits.filter(h=>h.active&&h.id!==habit.id).map(h=>(
+            <option key={h.id} value={h.id}>{h.name}の後に行う</option>
+          ))}
+        </select>
+        {chainFrom&&<div style={{marginTop:8,padding:"8px 11px",background:"rgba(6,182,212,.07)",border:"1px solid rgba(6,182,212,.2)",borderRadius:9,fontSize:11,color:"#06b6d4"}}>「{chainFrom.name}」の後に実行</div>}
+        {chainTo.length>0&&<div style={{marginTop:6,padding:"7px 11px",background:"rgba(6,182,212,.04)",border:"1px solid rgba(6,182,212,.15)",borderRadius:9,fontSize:10,color:"#555"}}>この習慣の後: {chainTo.map(h=>h.name).join("、")}</div>}
+      </div>
+      {/* Why */}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:10,color:"#818cf8",fontWeight:700,marginBottom:7,letterSpacing:.5,textTransform:"uppercase"}}>💭 なぜやるか</div>
+        {editWhy?(
+          <div><textarea value={whyText} onChange={e=>setWhyText(e.target.value)} placeholder="なぜこの習慣が大切ですか？" style={{width:"100%",padding:"11px 13px",background:"#0D0D16",border:"1px solid rgba(99,102,241,.28)",borderRadius:12,color:"#EFEFFA",fontSize:13,resize:"none",height:68}}/><div style={{display:"flex",gap:8,marginTop:7}}><button onClick={()=>{onUpdate({why:whyText});setEditWhy(false);}} style={{flex:1,padding:"9px",borderRadius:10,background:"#6366f1",color:"#fff",fontSize:12,fontWeight:700}}>保存</button><button onClick={()=>{setWhyText(habit.why||"");setEditWhy(false);}} style={{flex:1,padding:"9px",borderRadius:10,background:"#161626",color:"#555",fontSize:12,border:"1px solid #1C1C2A"}}>戻る</button></div></div>
+        ):(
+          <div onClick={()=>setEditWhy(true)} style={{padding:"10px 13px",background:"#0D0D16",border:"1px solid rgba(99,102,241,.18)",borderRadius:11,cursor:"pointer"}}>
+            {habit.why?<div style={{fontSize:12,color:"#C8C8E0",lineHeight:1.6}}>{habit.why}</div>:<div style={{fontSize:11,color:"#363650"}}>タップして記録（継続率2.5倍の根拠あり）</div>}
+          </div>
+        )}
+      </div>
+      {/* ★ 環境設計メモ */}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:10,color:"#22c55e",fontWeight:700,marginBottom:7,letterSpacing:.5,textTransform:"uppercase"}}>🌿 環境設計メモ</div>
+        <div style={{fontSize:11,color:"#555",marginBottom:7}}>この習慣を続けるための環境の工夫（例：前夜に道具を準備しておく）</div>
+        {editEnv?(
+          <div><textarea value={envText} onChange={e=>setEnvText(e.target.value)} placeholder="例：スニーカーをベッドの横に置く" style={{width:"100%",padding:"11px 13px",background:"#0D0D16",border:"1px solid rgba(34,197,94,.25)",borderRadius:12,color:"#EFEFFA",fontSize:13,resize:"none",height:60}}/><div style={{display:"flex",gap:8,marginTop:7}}><button onClick={()=>{onUpdate({envDesign:envText});setEditEnv(false);}} style={{flex:1,padding:"9px",borderRadius:10,background:"#22c55e",color:"#fff",fontSize:12,fontWeight:700}}>保存</button><button onClick={()=>{setEnvText(habit.envDesign||"");setEditEnv(false);}} style={{flex:1,padding:"9px",borderRadius:10,background:"#161626",color:"#555",fontSize:12,border:"1px solid #1C1C2A"}}>戻る</button></div></div>
+        ):(
+          <div onClick={()=>setEditEnv(true)} style={{padding:"10px 13px",background:"#0D0D16",border:"1px solid rgba(34,197,94,.16)",borderRadius:11,cursor:"pointer"}}>
+            {habit.envDesign?<div style={{fontSize:12,color:"#C8C8E0",lineHeight:1.6}}>{habit.envDesign}</div>:<div style={{fontSize:11,color:"#363650"}}>タップして環境設計を記録する</div>}
+          </div>
+        )}
+      </div>
+      {/* 難易度 */}
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:10,color:"#818cf8",fontWeight:700,marginBottom:8,letterSpacing:.5,textTransform:"uppercase"}}>⚡ 難易度</div>
+        <div style={{display:"flex",gap:7}}>
+          {DIFFS.map(d=>(
+            <button key={d.id} onClick={()=>onUpdate({difficulty:d.id})} style={{flex:1,padding:"9px 5px",borderRadius:10,background:habit.difficulty===d.id?`${d.color}16`:"#0D0D16",border:`1px solid ${habit.difficulty===d.id?d.color+"44":"#1C1C2A"}`,transition:"all .15s",textAlign:"center"}}>
+              <div style={{fontSize:10,fontWeight:700,color:habit.difficulty===d.id?d.color:"#555"}}>{d.label}</div>
+              <div style={{fontSize:9,color:d.color,fontWeight:800}}>×{d.mult}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* カレンダー */}
+      <div style={{fontSize:10,color:"#363650",fontWeight:700,letterSpacing:.5,marginBottom:5,textTransform:"uppercase"}}>{ymLbl(ym)} の記録</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
+        {DOW.map(dow=><div key={dow} style={{textAlign:"center",fontSize:8,color:"#222235",fontWeight:700,padding:"3px 0"}}>{dow}</div>)}
+      </div>
+      <div className="cal-grid">
+        {cells.map((day,i)=>{
+          if(day===null)return<div key={`_${i}`}/>;
+          const isC=!!mc[day],isS=!!sk[day],inactive=day<(habit.startDay??1),isT=day===td;
+          return(
+            <div key={day} className="cal-cell" style={{
+              background:isC?"linear-gradient(135deg,#1a2a7a,#6366f1)":isS?"#1A1A28":inactive?"transparent":isT?"#111128":"#09090E",
+              color:isC?"#fff":isS?"#f59e0b":inactive?"#1A1A2A":isT?"#818cf8":"#363650",
+              border:isT&&!isC?"1px solid rgba(129,140,248,.4)":"1px solid transparent",
+            }}>{isC?"✓":isS?"S":inactive?"":day}</div>
+          );
+        })}
+      </div>
+      {skipTotal>0&&(
+        <div style={{marginTop:10,padding:"9px 13px",background:"#0D0D16",borderRadius:10,border:"1px solid #1C1C2A",fontSize:10,color:"#888"}}>
+          Skip {skipTotal}回　鬼門: {DOW[worstDow]}曜日{topSkipR&&<span style={{marginLeft:8,color:"#818cf8"}}>{topSkipR.emoji}{topSkipR.label}が多い</span>}
+        </div>
+      )}
+      <button onClick={onClose} style={{width:"100%",marginTop:14,padding:"13px",background:"#161626",color:"#555",borderRadius:13,fontSize:13,fontWeight:600,border:"1px solid #1C1C2A"}}>閉じる</button>
+    </div></div>
+  );
+}
+
+/* 編集カード */
+function EditCard({habit,habits,onRename,onRemove,onUpdate}){
+  const[name,setName]=useState(habit.name);const[confirmDel,setConfirmDel]=useState(false);const iRef=useRef(null);
+  useEffect(()=>setName(habit.name),[habit.name]);
+  const blur=()=>{const t=name.trim();if(!t){setName(habit.name);return;}onRename(t);};
+  const key=e=>{if(e.key==="Enter")iRef.current?.blur();if(e.key==="Escape"){setName(habit.name);iRef.current?.blur();}};
+  const diff=DIFFS.find(d=>d.id===habit.difficulty)||DIFFS[1];
+  if(confirmDel)return(
+    <div className="ecard" style={{background:"#180808",border:"1px solid rgba(239,68,68,.28)"}}>
+      <div style={{padding:"15px 18px"}}>
+        <div style={{fontSize:12,color:"#ef4444",fontWeight:700,marginBottom:11}}>「{habit.name}」を削除しますか？</div>
+        <div style={{display:"flex",gap:8}}><button onClick={onRemove} style={{flex:1,padding:"11px",borderRadius:11,background:"#ef4444",color:"#fff",fontSize:13,fontWeight:700}}>削除する</button><button onClick={()=>setConfirmDel(false)} style={{flex:1,padding:"11px",borderRadius:11,background:"#1C1C2A",color:"#888",fontSize:13,fontWeight:600,border:"1px solid #2A2A3A"}}>戻る</button></div>
+      </div>
+    </div>
+  );
+  return(
+    <div className="ecard">
+      <div style={{display:"flex",alignItems:"center"}}>
+        <div style={{padding:"0 4px 0 15px",color:"#363650",fontSize:17,display:"flex",alignItems:"center",flexShrink:0,userSelect:"none",letterSpacing:-2}}>⠿</div>
+        <input ref={iRef} value={name} onChange={e=>setName(e.target.value)} onBlur={blur} onKeyDown={key} placeholder="習慣名を入力"
+          style={{flex:1,background:"transparent",border:"none",borderBottom:"1px solid rgba(99,102,241,.2)",color:"#EFEFFA",fontSize:14,fontWeight:600,padding:"17px 10px 17px 8px",letterSpacing:-.2}}/>
+        <button onClick={()=>setConfirmDel(true)} style={{padding:"0 15px",height:"100%",minHeight:54,display:"flex",alignItems:"center",justifyContent:"center",color:"#363650",flexShrink:0,transition:"color .15s"}} onMouseOver={e=>e.currentTarget.style.color="#ef4444"} onMouseOut={e=>e.currentTarget.style.color="#363650"}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
+      <div style={{padding:"0 14px 11px",display:"flex",gap:6}}>
+        {DIFFS.map(d=>(
+          <button key={d.id} onClick={()=>onUpdate({difficulty:d.id})} style={{flex:1,padding:"5px",borderRadius:8,background:habit.difficulty===d.id?`${d.color}16`:"transparent",border:`1px solid ${habit.difficulty===d.id?d.color+"40":"#1C1C2A"}`,transition:"all .15s",textAlign:"center"}}>
+            <div style={{fontSize:9,fontWeight:700,color:habit.difficulty===d.id?d.color:"#363650"}}>{d.label} ×{d.mult}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* SVGアイコン */
+function TodayIco({active}){return<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active?"2.4":"2"} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="3.5"/><path d="M16 2v4M8 2v4M3 10h18"/>{active&&<circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/>}</svg>;}
+function MomIco({active}){return<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active?"2.4":"2"} strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>;}
+function WeekIco({active}){return<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active?"2.4":"2"} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;}
+function CoachIco({active}){return<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active?"2.4":"2"} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
